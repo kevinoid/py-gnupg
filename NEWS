@@ -1,4 +1,4 @@
-Noteworthy changes in 0.2.1
+Noteworthy changes in 0.3.0
 -----------------------------------------------------------------
 
    *	Renamed class GnuPGInterface.GnuPGInterface to GnuPGInterface.GnuPG.
