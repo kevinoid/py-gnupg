@@ -27,7 +27,7 @@ Example code:
 >>> 
 >>> # Normally we might specify something in
 >>> # gnupg.options.recipients, like
->>> # gnupg.options.recipients = [ '0xABCD1234', 'bob@abc.com' ]
+>>> # gnupg.options.recipients = [ '0xABCD1234', 'bob@foo.bar' ]
 >>> # but since we're doing symmetric-only encryption, it's not needed.
 >>> # If you are doing standard, public-key encryption, using
 >>> # --encrypt, you will need to specify recipients before
@@ -160,6 +160,43 @@ ciphertext.
 >>> import types
 >>> assert type(ciphertext) == types.StringType, \
            "What GnuPG gave back isn't a string!"
+
+Here's an example of generating a key:
+>>> import GnuPGInterface
+>>> gnupg = GnuPGInterface.GnuPG()
+>>> gnupg.options.meta_interactive = 0
+>>>
+>>> # We will be creative and use the logger filehandle to capture
+>>> # what GnuPG says this time, instead stderr; no stdout to listen to,
+>>> # but we capture logger to surpress the dry-run command.
+>>> # We also have to capture stdout since otherwise doctest complains;
+>>> # Normally you can let stdout through when generating a key.
+>>> 
+>>> proc = gnupg.run(['--gen-key'], create_fhs=['stdin', 'stdout',
+...                                             'logger'])
+>>> 
+>>> proc.handles['stdin'].write('''Key-Type: DSA
+... Key-Length: 1024
+... # We are only testing syntax this time, so dry-run
+... %dry-run
+... Subkey-Type: ELG-E
+... Subkey-Length: 1024
+... Name-Real: Joe Tester
+... Name-Comment: with stupid passphrase
+... Name-Email: joe@foo.bar
+... Expire-Date: 2y
+... Passphrase: abc
+... %pubring foo.pub
+... %secring foo.sec
+... ''')
+>>> 
+>>> proc.handles['stdin'].close()
+>>> 
+>>> report = proc.handles['logger'].read()
+>>> proc.handles['logger'].close()
+>>> 
+>>> proc.wait()
+
 
 COPYRIGHT:
 
@@ -596,7 +633,7 @@ class Process:
         if e != 0:
             raise IOError, "GnuPG exited non-zero, with code %d" % (e << 8)
 
-def _test():
+def _run_doctests():
     import doctest, GnuPGInterface
     return doctest.testmod(GnuPGInterface)
 
@@ -604,4 +641,4 @@ def _test():
 GnuPGInterface = GnuPG
 
 if __name__ == '__main__':
-    _test()
+    _run_doctests()
