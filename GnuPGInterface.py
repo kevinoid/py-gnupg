@@ -304,7 +304,7 @@ class GnuPG:
         attach_fhs is an optional dictionary with GnuPG filehandle
         names mapping to opened files.  GnuPG will read or write
         to the file accordingly.  For example, if 'my_file' is an
-        opened file and 'attach_fhs[stdin] == my_file', then GnuPG
+        opened file and 'attach_fhs[stdin] is my_file', then GnuPG
         will read its standard input from my_file. This is useful
         if you want GnuPG to read/write to/from an existing file.
 	For instance:
