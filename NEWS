@@ -1,3 +1,9 @@
+Noteworthy changes in 0.3.1
+-----------------------------------------------------------------
+
+    *	Thanks to a patch by drt@un.bewaff.net, fixed a nasty
+	fatal bug that manifested itself running on Linux.
+
 Noteworthy changes in 0.3.0
 -----------------------------------------------------------------
 

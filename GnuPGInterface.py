@@ -225,7 +225,7 @@ import sys
 import fcntl, FCNTL
 
 __author__   = "Frank J. Tobin, ftobin@neverending.org"
-__version__  = "0.3.0"
+__version__  = "0.3.1"
 __revision__ = "$Id$"
 
 # "standard" filehandles attached to processes
