@@ -30,7 +30,6 @@ import tempfile
 import GnuPGInterface
 
 __author__   = "Frank J. Tobin, ftobin@neverending.org"
-__version__  = "0.2.2"
 __revision__ = "$Id$"
 
 class BasicTest(unittest.TestCase):
