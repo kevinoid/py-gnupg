@@ -51,7 +51,24 @@ _direct = 2
 class GnuPGInterface:
     """Class representing a GnuPG interface.
     
-    Example:
+    Instance attributes of a GnuPGInterface object are:
+    
+    * call -- string to call GnuPG with.  Defaults to "gpg"
+
+    * passphrase -- Since it is a common operation
+      to pass in a passphrase to GnuPG,
+      and working with the passphrase filehandle mechanism directly
+      can be mundane, if set, the passphrase attribute
+      works in a special manner.  If the passphrase attribute is set, 
+      and no passphrase file object is sent in to run(),
+      then GnuPGInterface will take care of sending the passphrase to GnuPG,
+      instead of having the user sent it in manually.
+      
+    * options -- Object of type GnuPGInterface.Options. 
+      Attribute-setting in options determines
+      the command-line options used when calling GnuPG.
+
+    Example code:
 
     >>> import os
     >>> import GnuPGInterface
@@ -71,29 +88,38 @@ class GnuPGInterface:
     >>> # you will need to specify recipients.
     >>> 
     >>> # First we'll encrypt the text input symmetrically
-    >>> p1 = gnupg.run(['--symmetric'], stdin=1, stdout=1, passphrase=1)
+    >>> p1 = gnupg.run(['--symmetric'],
+    ...                create_fhs=['stdin', 'stdout', 'passphrase'])
+    >>> 
     >>> p1.handles['passphrase'].write(passphrase)
     >>> p1.handles['passphrase'].close()
+    >>> 
     >>> p1.handles['stdin'].write(text)
     >>> p1.handles['stdin'].close()
+    >>> 
     >>> out1 = p1.handles['stdout'].read()
     >>> p1.handles['stdout'].close()
+    >>> 
     >>> # Checking to make sure GnuPG exited successfully
     >>> e = os.waitpid(p1.pid, 0)[1]
     >>> if e != 0:
-    ...     raise IOError, "GnuPG exited non-zero, with status" + repr(e)
+    ...     raise IOError, "GnuPG exited non-zero, with code %d" % e
     >>> 
     >>> # Now we'll decrypt it, using the convience way to get the
     >>> # passphrase to GnuPG
     >>> gnupg.passphrase = passphrase
-    >>> p2 = gnupg.run(['--decrypt'], stdin=1, stdout=1 )
+    >>> 
+    >>> p2 = gnupg.run(['--decrypt'], create_fhs=['stdin', 'stdout'])
+    >>> 
     >>> p2.handles['stdin'].write(out1)
     >>> p2.handles['stdin'].close()
+    >>> 
     >>> out2 = p2.handles['stdout'].read()
     >>> p2.handles['stdout'].close()
+    >>> 
     >>> e = os.waitpid(p2.pid, 0)[1]
     >>> if e != 0:
-    ...     raise IOError, "GnuPG exited non-zero, with status" + repr(e)
+    ...     raise IOError, "GnuPG exited non-zero, with code %d" % e
     >>> 
     >>> # Our decrypted plaintext:
     >>> out2
@@ -102,23 +128,52 @@ class GnuPGInterface:
     >>> # ...and it's the same as what we orignally encrypted
     >>> text == out2
     1
-    
-    Instance attributes of a GnuPGInterface object are:
-    
-    * call -- string to call GnuPG with.  Defaults to "gpg"
-
-    * passphrase -- Since it is a common operation
-      to pass in a passphrase to GnuPG,
-      and working with the passphrase filehandle mechanism directly
-      can be mundane, if set, the passphrase attribute
-      works in a special manner.  If the passphrase attribute is set, 
-      and no passphrase file object is sent in to run(),
-      then GnuPGInterface will take care of sending the passphrase to GnuPG,
-      instead of having the user sent it in manually.
-      
-    * options -- Object of type GnuPGInterface.Options. 
-      Attribute-setting in options determines
-      the command-line options used when calling GnuPG.
+    >>>
+    >>> ##################################################
+    >>> # Now let's trying using run()'s attach_fhs paramter
+    >>>
+    >>> gnupg.passphrase = 'funny'
+    >>>
+    >>> # we're assuming we're running on a unix...
+    >>> motd = open('/etc/motd')
+    >>> 
+    >>> p1 = gnupg.run(['--symmetric'], create_fhs=['stdout'],
+    ...                                 attach_fhs={'stdin': motd})
+    >>>
+    >>> # GnuPG will read the stdin from /etc/motd
+    >>> out1 = p1.handles['stdout'].read()
+    >>>
+    >>> e = os.waitpid(p1.pid, 0)[1]
+    >>> if e != 0:
+    ...     raise IOError, "GnuPG exited non-zero, with code %d" % e
+    >>> 
+    >>> 
+    >>> # Now let's run the output through GnuPG
+    >>> # We'll write the output to a temporary file,
+    >>> import tempfile
+    >>> temp = tempfile.TemporaryFile()
+    >>> 
+    >>> p2 = gnupg.run(['--decrypt'], create_fhs=['stdin'],
+    ...                               attach_fhs={'stdout': temp})
+    >>> 
+    >>> # give GnuPG our encrypted stuff from the first run
+    >>> p2.handles['stdin'].write(out1)
+    >>> p2.handles['stdin'].close()
+    >>> 
+    >>> e = os.waitpid(p2.pid, 0)[1]
+    >>> if e != 0:
+    ...     raise IOError, "GnuPG exited non-zero, with code %d" % e
+    >>> 
+    >>> # rewind the tempfile and see what GnuPG gave us
+    >>> temp.seek(0)
+    >>> out2 = temp.read()
+    >>> 
+    >>> # compare what GnuPG decrypted with our original /etc/motd
+    >>> motd.seek(0)
+    >>> motd_data = motd.read()
+    >>>
+    >>> out2 == motd_data
+    1
     """
 
     def __init__(self):
@@ -126,7 +181,7 @@ class GnuPGInterface:
         self.passphrase = None
         self.options = Options()
     
-    def run(self, gnupg_commands, args=None, **fh_requests):
+    def run(self, gnupg_commands, args=None, create_fhs=None, attach_fhs=None):
 	"""Calls GnuPG with the list of string commands gnupg_commands,
 	complete with prefixing dashes.
 	For example, gnupg_commands could be
@@ -135,58 +190,80 @@ class GnuPGInterface:
 	
 	args is an optional list of GnuPG command arguments (not options),
 	such as keyID's to export, filenames to process, etc.
-	
-	fh_request's are named parameters corresponding to filehandle
-	names to be connected with the GnuPG process.  Valid names are:
-	stdin, stdout, stderr, passphrase, command, logger, and status.
-	
-	The purpose of each filehandle is described in the GnuPG documentation.
-	
-	Valid values for each filehandle name are either
-	any false value, 1, or a file-like object which implements methods
-        you expect a file-like object to have, plus fileno().
+
+        create_fhs is an optional list of GnuPG filehandle
+        names that will be set as keys of the returned Process object's
+        'handles' attribute.  The generated filehandles can be used
+        to communicate with GnuPG via standard input, standard output,
+        the status-fd, passphrase-fd, etc.
         
-	If not defined or false, fh_request's which are a
-        std* are defaulted to the running process' version of handle.
-	Otherwise, that type of handle is simply not used when calling GnuPG>
+        Valid GnuPG filehandle names are:
+          * stdin
+          * stdout
+          * stderr
+          * status
+          * passphase
+          * command
+          * logger
+        
+        The purpose of each filehandle is described in the GnuPG
+        documentation.
+        
+        attach_fhs is an optional dictionary with GnuPG filehandle
+        names mapping to opened files.  GnuPG will read or write
+        to the file accordingly.  For example, if 'my_file' is an
+        opened file and 'attach_fhs[stdin] == my_file', then GnuPG
+        will read its standard input from my_file. This is useful
+        if you want GnuPG to read/write to/from an existing file.
+	For instance:
+        
+	    f = open("encrypted.gpg")
+            gnupg.run(["--decrypt"], create_fhs={'stdin': f})
+
+        Using attach_fhs also helps avoid system buffering
+        issues that can arise when using create_fhs, which
+        can cause the process to deadlock.
+        
+        If not mentioned in create_fhs or attach_fhs,
+	GnuPG filehandles which are a std* (stdin, stdout, stderr)
+        are defaulted to the running process' version of handle.
+	Otherwise, that type of handle is simply not used when calling GnuPG.
 	For example, if you do not care about getting data from GnuPG's
 	status filehandle, simply do not specify it.
 	
-	If a filehandle name has the value 1,
-	after run() returns, the returned GnuPGInterface.Process</a>
-	object will have an attribute of handles,
-	which is a dictionary mapping from the handle name
-        (such as stdin or command) to the respective
+	run() returns a Process() object which has a 'handles'
+        which is a dictionary mapping from the handle name
+        (such as 'stdin' or 'stdout') to the respective
         newly-created FileObject connected to the running GnuPG process.
 	For instance, if the call was
-	'process = gnupg.run(["--decrypt"], stdin=1)',
+
+          process = gnupg.run(["--decrypt"], stdin=1)
+          
 	after run returns 'process.handles["stdin"]'
-	is a file object connected to GnuPG's standard input,
+        is a FileObject connected to GnuPG's standard input,
 	and can be written to.
-	
-	If a filehandle has a false value, it is simply
-	as if it was never specified in the call.
-	
-	If file-like object is given, then the GnuPG process will read/write
-	directly to/from that object.  This is useful if you want
-	GnuPG to read/write to/from an existing file.
-	For instance:
-        
-	f = open("encrypted.gpg")
-	gnupg.run(["--decrypt"], stdin= f)
         """
         
 	if args == None: args = []
+        if create_fhs == None: create_fhs = []
+        if attach_fhs == None: attach_fhs = {}
 	
-        for std in _stds: fh_requests.setdefault( std, getattr(sys, std) )
+        for std in _stds:
+            if not attach_fhs.has_key(std) \
+               and std not in create_fhs:
+                attach_fhs.setdefault(std, getattr(sys, std))
+        
         handle_passphrase = 0
         
-        if self.passphrase != None and not fh_requests.has_key( 'passphrase' ):
+        if self.passphrase != None \
+           and not attach_fhs.has_key('passphrase') \
+           and 'passphrase' not in create_fhs:
             handle_passphrase = 1
-            fh_requests['passphrase'] = 1
-
-        process = self._attach_fork_exec(gnupg_commands, args, fh_requests)
-
+            create_fhs.append('passphrase')
+        
+        process = self._attach_fork_exec(gnupg_commands, args,
+                                         create_fhs, attach_fhs)
+        
         if handle_passphrase:
             passphrase_fh = process.handles['passphrase']
             passphrase_fh.write( self.passphrase )
@@ -196,36 +273,30 @@ class GnuPGInterface:
         return process
     
     
-    def _attach_fork_exec(self, gnupg_commands, args, fh_requests):
+    def _attach_fork_exec(self, gnupg_commands, args, create_fhs, attach_fhs):
         """This is like run(), but without the passphrase-helping
 	(note that run() calls this)."""
 	
 	process = Process()
         
-        for k, h in fh_requests.items():
-            if not _fd_modes.has_key(k):
-                raise KeyError, "unrecognized filehandle name '%s'; must be one of %s" % ( k, _fd_modes.keys() )
+        for fh_name in create_fhs + attach_fhs.keys():
+            if not _fd_modes.has_key(fh_name):
+                raise KeyError, \
+                      "unrecognized filehandle name '%s'; must be one of %s" \
+                      % (fh_name, _fd_modes.keys())
 
-            # We used to test if h was a FileType, but this
-            # destroys abstraction, such as if there is a
-            # FileType-like object which merely implements
-            # everything we need.
-            # So now, we test for if h has the value 1,
-            # and only if so do we 'generate' a filehandle for it.
-            # If h is false, then we will disregard it.
+        for fh_name in create_fhs:
+            # make sure the user doesn't specify a filehandle
+            # to be created *and* attached
+            if attach_fhs.has_key(fh_name):
+                raise ValueError, \
+                      "cannot have filehandle '%s' in both create_fhs and attach_fhs" \
+                      % fh_name
             
-            if h == 1:
-                # the user wants us to give them a fh
-                process._pipes[k] = os.pipe() + (0,)
-            
-            elif h:
-                # the user wants us to connect the handle they gave us
-                # gave us to the specified handle
-                process._pipes[k] = (h.fileno(), h.fileno(), 1)
-            
-            # Else the user doesn't want that type of handle.
-            # Note that all std fh's that aren't specified
-            # are defined as the current process' handle of that name
+            process._pipes[fh_name] = os.pipe() + (0,)
+        
+        for fh_name, fh in attach_fhs.items():
+            process._pipes[fh_name] = (fh.fileno(), fh.fileno(), 1)
         
         process.pid = os.fork()
         
@@ -235,14 +306,14 @@ class GnuPGInterface:
     
     def _as_parent(self, process):
         """Stuff run after forking in parent"""
-        for p in process._pipes.values():
-            if not p[_direct]: os.close( p[_child] )
-            
         for k, p in process._pipes.items():
-            if not p[_direct]: process.handles[k] = os.fdopen( p[_parent], _fd_modes[k] )
-
+            if not p[_direct]:
+                os.close(p[_child])
+                process.handles[k] = os.fdopen(p[_parent], _fd_modes[k])
+        
+        # user doesn't need these
         del process._pipes
-
+        
         return process
 
 
@@ -251,9 +322,9 @@ class GnuPGInterface:
         # child
         for std in _stds:
             p = process._pipes[std]
-            if not p[_direct]:
-                os.dup2( p[_child], getattr( sys, "__" + std + "__" ).fileno() )
-	
+            os.dup2( p[_child],
+                     getattr(sys, "__%s__" % std).fileno() )
+        
         for k, p in process._pipes.items():
             if p[_direct] and k not in _stds:
                 # we want the fh to stay open after execing
@@ -261,19 +332,19 @@ class GnuPGInterface:
         
         fd_args = []
         
-        # set command-line options for non-standard fds
         for k, p in process._pipes.items():
-            if k not in _stds: fd_args.extend( [ _fd_options[k], `p[_child]` ] )
-            if not p[_direct]: os.close( p[_parent] )
+            # set command-line options for non-standard fds
+            if k not in _stds:
+                fd_args.extend([ _fd_options[k], "%d" % p[_child] ])
             
-        command = [ self.call ] + fd_args + self.options.get_args() + gnupg_commands + args
+            if not p[_direct]:
+                os.close(p[_parent])
+        
+        command = [ self.call ] + fd_args + self.options.get_args() \
+                  + gnupg_commands + args
+
         os.execvp( command[0], command )
 
-
-	def _get_full_args(self, gnupg_commands, args, fd_args):
-	    [ self.call ] + fd_args + self.options.get_args() \
-	      + gnupg_commands + args
-        
 
 class Options:
     """Objects of this class encompass options passed to GnuPG.

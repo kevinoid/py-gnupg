@@ -1,3 +1,18 @@
+Noteworthy changes in 0.2.0
+-----------------------------------------------------------------
+	
+    *	MAJOR BACKWARDS COMPATIBLITY BREAK:
+	Major API changes with regards to GnuPGInterface's run()
+	method have been made. A much cleaner and more sensible
+	method is now used to request which filehandles are 'created'
+	and which are 'attached'.  See the documentation and example
+	code for details.
+
+    *	The ability to have run() 'attach' GnuPG filehandles
+	to already-opened files works now. Really, it does :)
+	(I implemented more doctest tests to make sure now).
+
+
 Noteworthy changes in 0.1.0
 -----------------------------------------------------------------
 
