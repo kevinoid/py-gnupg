@@ -6,6 +6,7 @@ This module is based on GnuPG::Interface, a Perl module by the same author.
 
 To install this distribution, simply run the following:
 
+	python setup.py build
 	python setup.py install
 
 See 'pydoc GnuPGInterface' for module documentation.  Only recent
