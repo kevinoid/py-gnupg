@@ -1,6 +1,10 @@
 """Interface to GNU Privacy Guard (GnuPG)
 
-by Frank Tobin, ftobin@uiuc.edu
+GnuPGInterface is a Python module to interface with GnuPG.
+It concentrates on interacting with GnuPG via filehandles,
+providing access to control GnuPG via versatile and extensible means.
+
+This module is based on GnuPG::Interface, a Perl module by the same author.
 """
 
 # $Id$

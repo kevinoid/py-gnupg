@@ -1,4 +1,6 @@
 Noteworthy changes in 0.1.0
 -----------------------------------------------------------------
 
-    *	Initial release.
+    *	Initial release: everything described in documentation
+	works (this is not to say the module is bug-free,
+	but that rather there are no "missing features".
