@@ -5,6 +5,13 @@ It concentrates on interacting with GnuPG via filehandles,
 providing access to control GnuPG via versatile and extensible means.
 
 This module is based on GnuPG::Interface, a Perl module by the same author.
+
+Normally, using this module will involve creating a
+GnuPGInterface object, setting some options in it's
+'options' data member (which is of type Options), creating some pipes
+to talk with GnuPG, and then calling the run() method, which will
+connect those pipes to the GnuPG process. run() returns a
+Process object, which contains the filehandles to talk to GnuPG with.
 """
 
 # $Id$
@@ -136,32 +143,35 @@ class GnuPGInterface:
 	The purpose of each filehandle is described in the GnuPG documentation.
 	
 	Valid values for each filehandle name are either
-	non-FileObject booleans, or FileObjects.
-	If not set, fh_request's which are a std* are defaulted
-	to the running process' version of handle.
+	any false value, 1, or a file-like object which implements methods
+        you expect a file-like object to have, plus fileno().
+        
+	If not defined or false, fh_request's which are a
+        std* are defaulted to the running process' version of handle.
 	Otherwise, that type of handle is simply not used when calling GnuPG>
 	For example, if you do not care about getting data from GnuPG's
 	status filehandle, simply do not specify it.
 	
-	If a filehandle name has a non-FileObject value which is true,
+	If a filehandle name has the value 1,
 	after run() returns, the returned GnuPGInterface.Process</a>
 	object will have an attribute of handles,
-	which is a mapping from the handle name (such as stdin or command)
-	to the respective FileObject  connected to the GnuPGInterface object.
+	which is a dictionary mapping from the handle name
+        (such as stdin or command) to the respective
+        newly-created FileObject connected to the running GnuPG process.
 	For instance, if the call was
 	'process = gnupg.run(["--decrypt"], stdin=1)',
 	after run returns 'process.handles["stdin"]'
 	is a file object connected to GnuPG's standard input,
 	and can be written to.
 	
-	If a non-FileObject boolean is sent in and is false, it is simply
+	If a filehandle has a false value, it is simply
 	as if it was never specified in the call.
 	
-	If a FileObject is given, then the GnuPG process will read/write
+	If file-like object is given, then the GnuPG process will read/write
 	directly to/from that object.  This is useful if you want
 	GnuPG to read/write to/from an existing file.
 	For instance:
-
+        
 	f = open("encrypted.gpg")
 	gnupg.run(["--decrypt"], stdin= f)
         """
@@ -195,16 +205,24 @@ class GnuPGInterface:
         for k, h in fh_requests.items():
             if not _fd_modes.has_key(k):
                 raise KeyError, "unrecognized filehandle name '%s'; must be one of %s" % ( k, _fd_modes.keys() )
+
+            # We used to test if h was a FileType, but this
+            # destroys abstraction, such as if there is a
+            # FileType-like object which merely implements
+            # everything we need.
+            # So now, we test for if h has the value 1,
+            # and only if so do we 'generate' a filehandle for it.
+            # If h is false, then we will disregard it.
             
-            if type(h) != types.FileType and h:
+            if h == 1:
                 # the user wants us to give them a fh
-                process._pipes[k] = os.pipe() + ( 0, )
+                process._pipes[k] = os.pipe() + (0,)
             
-            elif type(h) == types.FileType:
+            elif h:
                 # the user wants us to connect the handle they gave us
                 # gave us to the specified handle
-                process._pipes[k] = ( h.fileno(), h.fileno(), 1 )
-
+                process._pipes[k] = (h.fileno(), h.fileno(), 1)
+            
             # Else the user doesn't want that type of handle.
             # Note that all std fh's that aren't specified
             # are defined as the current process' handle of that name
@@ -259,10 +277,10 @@ class GnuPGInterface:
 
 class Options:
     """Objects of this class encompass options passed to GnuPG.
-    Responsible for determining command-line arguments which
-    are based on options.  It can be said that a GnuPGInterface
+    This class is responsible for determining command-line arguments
+    which are based on options.  It can be said that a GnuPGInterface
     object has-a GnuPGInterface.Options object in its options attribute.
-
+    
     Attributes which correlate directly to GnuPG options:
     
     Each option here defaults to false or None, and is described in
@@ -406,14 +424,14 @@ class Options:
 
 
 class Process:
-    """# gnupg is a GnuPGInterface.GnuPGInterface object
+    """Objects of this class encompass properties of a GnuPG
+    process spawned by GnuPGInterface's run().
+    
+    # gnupg is a GnuPGInterface.GnuPGInterface object
     process = gnupg.run( [ '--decrypt' ], stdout = 1 )
     out = process.handles['stdout'].read()
     ...
     os.waitpid( process.pid, 0 )
-    
-    Objects of this class encompass properties of a GnuPG
-    process spawned by GnuPGInterface's run()
     
     Data Attributes
     
