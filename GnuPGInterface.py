@@ -7,45 +7,213 @@ providing access to control GnuPG via versatile and extensible means.
 This module is based on GnuPG::Interface, a Perl module by the same author.
 
 Normally, using this module will involve creating a
-GnuPGInterface object, setting some options in it's
-'options' data member (which is of type Options), creating some pipes
+GnuPG object, setting some options in it's 'options' data member
+(which is of type Options), creating some pipes
 to talk with GnuPG, and then calling the run() method, which will
 connect those pipes to the GnuPG process. run() returns a
 Process object, which contains the filehandles to talk to GnuPG with.
-"""
 
-# $Id$
+Example code:
+
+>>> import GnuPGInterface
+>>> 
+>>> plaintext  = "Three blind mice"
+>>> passphrase = "This is the passphrase"
+>>> 
+>>> gnupg = GnuPGInterface.GnuPG()
+>>> gnupg.options.armor = 1
+>>> gnupg.options.meta_interactive = 0
+>>> gnupg.options.extra_args.append('--no-secmem-warning')
+>>> 
+>>> # Normally we might specify something in
+>>> # gnupg.options.recipients, like
+>>> # gnupg.options.recipients = [ '0xABCD1234', 'bob@abc.com' ]
+>>> # but since we're doing symmetric-only encryption, it's not needed.
+>>> # If you are doing standard, public-key encryption, using
+>>> # --encrypt, you will need to specify recipients before
+>>> # calling gnupg.run()
+>>> 
+>>> # First we'll encrypt the test_text input symmetrically
+>>> p1 = gnupg.run(['--symmetric'],
+...                create_fhs=['stdin', 'stdout', 'passphrase'])
+>>> 
+>>> p1.handles['passphrase'].write(passphrase)
+>>> p1.handles['passphrase'].close()
+>>> 
+>>> p1.handles['stdin'].write(plaintext)
+>>> p1.handles['stdin'].close()
+>>> 
+>>> ciphertext = p1.handles['stdout'].read()
+>>> p1.handles['stdout'].close()
+>>> 
+>>> # process cleanup
+>>> p1.wait()
+>>> 
+>>> # Now we'll decrypt what we just encrypted it,
+>>> # using the convience method to get the
+>>> # passphrase to GnuPG
+>>> gnupg.passphrase = passphrase
+>>> 
+>>> p2 = gnupg.run(['--decrypt'], create_fhs=['stdin', 'stdout'])
+>>> 
+>>> p2.handles['stdin'].write(ciphertext)
+>>> p2.handles['stdin'].close()
+>>> 
+>>> decrypted_plaintext = p2.handles['stdout'].read()
+>>> p2.handles['stdout'].close()
+>>> 
+>>> # process cleanup
+>>> p2.wait()
+>>> 
+>>> # Our decrypted plaintext:
+>>> decrypted_plaintext
+'Three blind mice'
+>>>
+>>> # ...and see it's the same as what we orignally encrypted
+>>> assert decrypted_plaintext == plaintext, \
+          "GnuPG decrypted output does not match original input"
+>>>
+>>>
+>>> ##################################################
+>>> # Now let's trying using run()'s attach_fhs paramter
+>>> 
+>>> # we're assuming we're running on a unix...
+>>> input = open('/etc/motd')
+>>> 
+>>> p1 = gnupg.run(['--symmetric'], create_fhs=['stdout'],
+...                                 attach_fhs={'stdin': input})
+>>>
+>>> # GnuPG will read the stdin from /etc/motd
+>>> ciphertext = p1.handles['stdout'].read()
+>>>
+>>> # process cleanup
+>>> p1.wait()
+>>> 
+>>> # Now let's run the output through GnuPG
+>>> # We'll write the output to a temporary file,
+>>> import tempfile
+>>> temp = tempfile.TemporaryFile()
+>>> 
+>>> p2 = gnupg.run(['--decrypt'], create_fhs=['stdin'],
+...                               attach_fhs={'stdout': temp})
+>>> 
+>>> # give GnuPG our encrypted stuff from the first run
+>>> p2.handles['stdin'].write(ciphertext)
+>>> p2.handles['stdin'].close()
+>>> 
+>>> # process cleanup
+>>> p2.wait()
+>>> 
+>>> # rewind the tempfile and see what GnuPG gave us
+>>> temp.seek(0)
+>>> decrypted_plaintext = temp.read()
+>>> 
+>>> # compare what GnuPG decrypted with our original input
+>>> input.seek(0)
+>>> input_data = input.read()
+>>>
+>>> assert decrypted_plaintext == input_data, \
+           "GnuPG decrypted output does not match original input"
+
+To do things like public-key encryption, simply pass do something
+like:
+
+gnupg.passphrase = 'My passphrase'
+gnupg.options.recipients = [ 'bob@foobar.com' ]
+gnupg.run( ['--sign', '--encrypt'], create_fhs=..., attach_fhs=...)
+
+Here is an example of subclassing GnuPGInterface.GnuPG,
+so that it has an encrypt_string() method that returns
+ciphertext.
+
+>>> import GnuPGInterface
+>>> 
+>>> class MyGnuPG(GnuPGInterface.GnuPG):
+...
+...     def __init__(self):
+...         GnuPGInterface.GnuPG.__init__(self)
+...         self.setup_my_options()
+...
+...     def setup_my_options(self):
+...         self.options.armor = 1
+...         self.options.meta_interactive = 0
+...         self.options.extra_args.append('--no-secmem-warning')
+...
+...     def encrypt_string(self, string, recipients):
+...        gnupg.options.recipients = recipients   # a list!
+...        
+...        proc = gnupg.run(['--encrypt'], create_fhs=['stdin', 'stdout'])
+...        
+...        proc.handles['stdin'].write(string)
+...        proc.handles['stdin'].close()
+...                
+...        output = proc.handles['stdout'].read()
+...        proc.handles['stdout'].close()
+...
+...        proc.wait()
+...        return output
+...
+>>> gnupg = MyGnuPG()
+>>> ciphertext = gnupg.encrypt_string("The secret", ['0x260C4FA3'])
+>>>
+>>> # just a small sanity test here for doctest
+>>> import types
+>>> assert type(ciphertext) == types.StringType, \
+           "What GnuPG gave back isn't a string!"
+
+COPYRIGHT:
+
+Copyright (C) 2001  Frank J. Tobin, ftobin@neverending.org
+
+LICENSE:
+
+This library is free software; you can redistribute it and/or
+modify it under the terms of the GNU Lesser General Public
+License as published by the Free Software Foundation; either
+version 2.1 of the License, or (at your option) any later version.
+
+This library is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public
+License along with this library; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+or see http://www.gnu.org/copyleft/lesser.html
+"""
 
 import os
 import sys
 import fcntl, FCNTL
 
-__author__  = "Frank J. Tobin ftobin@neverending.org"
-__version__ = "0.2.1"
+__author__   = "Frank J. Tobin, ftobin@neverending.org"
+__version__  = "0.3.0"
+__revision__ = "$Id$"
 
 # "standard" filehandles attached to processes
 _stds = [ 'stdin', 'stdout', 'stderr' ]
 
 # the permissions each type of fh needs to be opened with
-_fd_modes = { 'stdin': 'w',
-              'stdout': 'r',
-              'stderr': 'r',
+_fd_modes = { 'stdin':      'w',
+              'stdout':     'r',
+              'stderr':     'r',
               'passphrase': 'w',
-              'command': 'w',
-              'logger': 'r',
-              'status':  'r'
+              'command':    'w',
+              'logger':     'r',
+              'status':     'r'
               }
 
 # correlation between handle names and the arguments we'll pass
 _fd_options = { 'passphrase': '--passphrase-fd',
-                'logger': '--logger-fd',
-                'status': '--status-fd',
-                'command': '--command-fd' }
+                'logger':     '--logger-fd',
+                'status':     '--status-fd',
+                'command':    '--command-fd' }
 
-class GnuPGInterface:
-    """Class representing a GnuPG interface.
+class GnuPG:
+    """Class instances represent GnuPG.
     
-    Instance attributes of a GnuPGInterface object are:
+    Instance attributes of a GnuPG object are:
     
     * call -- string to call GnuPG with.  Defaults to "gpg"
 
@@ -55,119 +223,12 @@ class GnuPGInterface:
       can be mundane, if set, the passphrase attribute
       works in a special manner.  If the passphrase attribute is set, 
       and no passphrase file object is sent in to run(),
-      then GnuPGInterface will take care of sending the passphrase to GnuPG,
-      instead of having the user sent it in manually.
+      then GnuPG instnace will take care of sending the passphrase to
+      GnuPG, the executable instead of having the user sent it in manually.
       
     * options -- Object of type GnuPGInterface.Options. 
       Attribute-setting in options determines
       the command-line options used when calling GnuPG.
-
-    Example code:
-
-    >>> import os
-    >>> import GnuPGInterface
-    >>> 
-    >>> text = "Three blind mice"
-    >>> passphrase = "This is the passphrase"
-    >>> 
-    >>> gnupg = GnuPGInterface.GnuPGInterface()
-    >>> gnupg.options.armor = 1
-    >>> gnupg.options.meta_interactive = 0
-    >>> gnupg.options.extra_args.append('--no-secmem-warning')
-    >>> 
-    >>> # Normally we might specify something in
-    >>> # gnupg.options.recipients(), but since we're doing
-    >>> # symmetric-only encryption, it's not needed.
-    >>> # If you are doing standard, public-key encryption
-    >>> # you will need to specify recipients.
-    >>> 
-    >>> # First we'll encrypt the text input symmetrically
-    >>> p1 = gnupg.run(['--symmetric'],
-    ...                create_fhs=['stdin', 'stdout', 'passphrase'])
-    >>> 
-    >>> p1.handles['passphrase'].write(passphrase)
-    >>> p1.handles['passphrase'].close()
-    >>> 
-    >>> p1.handles['stdin'].write(text)
-    >>> p1.handles['stdin'].close()
-    >>> 
-    >>> out1 = p1.handles['stdout'].read()
-    >>> p1.handles['stdout'].close()
-    >>> 
-    >>> # Checking to make sure GnuPG exited successfully
-    >>> e = os.waitpid(p1.pid, 0)[1]
-    >>> if e != 0:
-    ...     raise IOError, "GnuPG exited non-zero, with code %d" % e
-    >>> 
-    >>> # Now we'll decrypt it, using the convience way to get the
-    >>> # passphrase to GnuPG
-    >>> gnupg.passphrase = passphrase
-    >>> 
-    >>> p2 = gnupg.run(['--decrypt'], create_fhs=['stdin', 'stdout'])
-    >>> 
-    >>> p2.handles['stdin'].write(out1)
-    >>> p2.handles['stdin'].close()
-    >>> 
-    >>> out2 = p2.handles['stdout'].read()
-    >>> p2.handles['stdout'].close()
-    >>> 
-    >>> e = os.waitpid(p2.pid, 0)[1]
-    >>> if e != 0:
-    ...     raise IOError, "GnuPG exited non-zero, with code %d" % e
-    >>> 
-    >>> # Our decrypted plaintext:
-    >>> out2
-    'Three blind mice'
-    >>>
-    >>> # ...and it's the same as what we orignally encrypted
-    >>> text == out2
-    1
-    >>>
-    >>> ##################################################
-    >>> # Now let's trying using run()'s attach_fhs paramter
-    >>>
-    >>> gnupg.passphrase = 'funny'
-    >>>
-    >>> # we're assuming we're running on a unix...
-    >>> motd = open('/etc/motd')
-    >>> 
-    >>> p1 = gnupg.run(['--symmetric'], create_fhs=['stdout'],
-    ...                                 attach_fhs={'stdin': motd})
-    >>>
-    >>> # GnuPG will read the stdin from /etc/motd
-    >>> out1 = p1.handles['stdout'].read()
-    >>>
-    >>> e = os.waitpid(p1.pid, 0)[1]
-    >>> if e != 0:
-    ...     raise IOError, "GnuPG exited non-zero, with code %d" % e
-    >>> 
-    >>> 
-    >>> # Now let's run the output through GnuPG
-    >>> # We'll write the output to a temporary file,
-    >>> import tempfile
-    >>> temp = tempfile.TemporaryFile()
-    >>> 
-    >>> p2 = gnupg.run(['--decrypt'], create_fhs=['stdin'],
-    ...                               attach_fhs={'stdout': temp})
-    >>> 
-    >>> # give GnuPG our encrypted stuff from the first run
-    >>> p2.handles['stdin'].write(out1)
-    >>> p2.handles['stdin'].close()
-    >>> 
-    >>> e = os.waitpid(p2.pid, 0)[1]
-    >>> if e != 0:
-    ...     raise IOError, "GnuPG exited non-zero, with code %d" % e
-    >>> 
-    >>> # rewind the tempfile and see what GnuPG gave us
-    >>> temp.seek(0)
-    >>> out2 = temp.read()
-    >>> 
-    >>> # compare what GnuPG decrypted with our original /etc/motd
-    >>> motd.seek(0)
-    >>> motd_data = motd.read()
-    >>>
-    >>> out2 == motd_data
-    1
     """
 
     def __init__(self):
@@ -350,8 +411,8 @@ class Pipe:
 class Options:
     """Objects of this class encompass options passed to GnuPG.
     This class is responsible for determining command-line arguments
-    which are based on options.  It can be said that a GnuPGInterface
-    object has-a GnuPGInterface.Options object in its options attribute.
+    which are based on options.  It can be said that a GnuPG
+    object has-a Options object in its options attribute.
     
     Attributes which correlate directly to GnuPG options:
     
@@ -382,7 +443,7 @@ class Options:
     
     Lists (set these attributes to lists)
     
-      * recipients  (***NOTE*** this is NOT 'recipient')
+      * recipients  (***NOTE*** plural of 'recipient')
       * encrypt_to
     
     Meta options
@@ -408,10 +469,13 @@ class Options:
     via the attribute extra_args, a list.
 
     >>> import GnuPGInterface
-    >>> gnupg = GnuPGInterface.GnuPGInterface()
+    >>> 
+    >>> gnupg = GnuPGInterface.GnuPG()
     >>> gnupg.options.armor = 1
     >>> gnupg.options.recipients = ['Alice', 'Bob']
     >>> gnupg.options.extra_args = ['--no-secmem-warning']
+    >>> 
+    >>> # no need for users to call this normally; just for show here
     >>> gnupg.options.get_args()
     ['--armor', '--recipient', 'Alice', '--recipient', 'Bob', '--no-secmem-warning']
     """
@@ -497,9 +561,9 @@ class Options:
 
 class Process:
     """Objects of this class encompass properties of a GnuPG
-    process spawned by GnuPGInterface's run().
+    process spawned by GnuPG.run().
     
-    # gnupg is a GnuPGInterface.GnuPGInterface object
+    # gnupg is a GnuPG object
     process = gnupg.run( [ '--decrypt' ], stdout = 1 )
     out = process.handles['stdout'].read()
     ...
@@ -519,14 +583,25 @@ class Process:
     """
     
     def __init__(self):
-        self._pipes = {}
+        self._pipes  = {}
         self.handles = {}
-        self.pid = None
+        self.pid     = None
+        self._waited = None
 
+    def wait(self):
+        """Wait on the process to exit, allowing for child cleanup.
+        Will raise an IOError if the process exits non-zero."""
+        
+        e = os.waitpid(self.pid, 0)[1]
+        if e != 0:
+            raise IOError, "GnuPG exited non-zero, with code %d" % (e << 8)
 
 def _test():
     import doctest, GnuPGInterface
     return doctest.testmod(GnuPGInterface)
-    
+
+# deprecated
+GnuPGInterface = GnuPG
+
 if __name__ == '__main__':
     _test()

@@ -10,6 +10,3 @@ To install this distribution, simply run the following:
 
 See 'pydoc GnuPGInterface' for module documentation.  Only recent
 versions of Python include the executable 'pydoc'.
-
-This module is distributed under the GNU General Public License,
-copyright Frank J. Tobin, ftobin@neverending.org

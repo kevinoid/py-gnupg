@@ -1,4 +1,4 @@
-"""py-unit tests for GnuPGInterface
+"""py-unit tests for GnuPG
 
 COPYRIGHT:
 
@@ -37,12 +37,12 @@ class BasicTest(unittest.TestCase):
     """an initializer superclass"""
 
     def __init__(self, methodName=None):
-        self.gnupg = GnuPGInterface.GnuPGInterface()
+        self.gnupg = GnuPGInterface.GnuPG()
         unittest.TestCase.__init__(self, methodName)
 
 
-class GnuPGInterfaceTests(BasicTest):
-    """Tests for GnuPGInterface class"""
+class GnuPGTests(BasicTest):
+    """Tests for GnuPG class"""
 
     def __init__(self, methodName=None):
         BasicTest.__init__(self, methodName)

@@ -9,12 +9,12 @@ This module is based on GnuPG::Interface, a Perl module by the same author.
 """
 
 distutils.core.setup( name = 'GnuPGInterface',
-                      version = '0.2.1',
+                      version = '0.3.0',
                       description = 'GnuPG interactions with file handles',
 		      long_description = long_description,
                       author = 'Frank J. Tobin',
                       author_email = 'ftobin@users.sourceforge.net',
-		      licence = 'GPL',
+		      licence = 'LGPL',
 		      platforms = 'POSIX',
 		      keywords = 'GnuPG gpg',
                       url = 'http://py-gnupg.sourceforge.net/',

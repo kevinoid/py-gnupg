@@ -1,5 +1,23 @@
 Noteworthy changes in 0.2.1
 -----------------------------------------------------------------
+
+   *	Renamed class GnuPGInterface.GnuPGInterface to GnuPGInterface.GnuPG.
+	Note only the class name has changed, note the module name.
+	The old class name is still supported for backwards compatbility.
+
+    *	Changed license to the GNU Lesser General Public License.
+	Previous license was GNU General Public License.
+
+    *	Added a convenience Process.wait() method.
+
+    *	Lots of documentation changes, with many more examples.
+
+    *	Lots of unittests are now used, with many thanks to the unittest
+	module: http://py-unit.sourceforge.net/
+
+
+Noteworthy changes in 0.2.1
+-----------------------------------------------------------------
 	
     *	MAJOR BACKWARDS COMPATIBLITY BREAK:
 	Major API changes with regards to GnuPGInterface's run()
