@@ -386,6 +386,11 @@ class GnuPG:
                       % fh_name
 
             pipe = os.pipe()
+            # fix by drt@un.bewaff.net noting
+            # that since pipes are unidirectional on some systems,
+            # so we have to 'turn the pipe around'
+            # if we are writing
+            if _fd_modes[fh_name] == 'w': pipe = (pipe[1], pipe[0])
             process._pipes[fh_name] = Pipe(pipe[0], pipe[1], 0)
         
         for fh_name, fh in attach_fhs.items():
