@@ -10,7 +10,8 @@ import sys
 import types
 import fcntl, FCNTL
 
-__version__ = "$Revision$"
+__author__  = "Frank J. Tobin ftobin@uiuc.edu"
+__version__ = "0.1.0"
 
 # "standard" filehandles attached to processes
 _stds = [ 'stdin', 'stdout', 'stderr' ]
@@ -45,7 +46,7 @@ class GnuPGInterface:
     >>> import GnuPGInterface
     >>> 
     >>> text = "Three blind mice"
-    >>> pass = "This is the pass"
+    >>> passphrase = "This is the passphrase"
     >>> 
     >>> gnupg = GnuPGInterface.GnuPGInterface()
     >>> gnupg.options.armor = 1
@@ -60,7 +61,7 @@ class GnuPGInterface:
     >>> 
     >>> # First we'll encrypt the text input symmetrically
     >>> p1 = gnupg.run(['--symmetric'], stdin=1, stdout=1, passphrase=1)
-    >>> p1.handles['passphrase'].write(pass)
+    >>> p1.handles['passphrase'].write(passphrase)
     >>> p1.handles['passphrase'].close()
     >>> p1.handles['stdin'].write(text)
     >>> p1.handles['stdin'].close()
@@ -69,28 +70,31 @@ class GnuPGInterface:
     >>> # Checking to make sure GnuPG exited successfully
     >>> e = os.waitpid(p1.pid, 0)[1]
     >>> if e != 0:
-    >>>     raise IOError, "GnuPG exited non-zero, with status" + repr(e)
+    ...     raise IOError, "GnuPG exited non-zero, with status" + repr(e)
     >>> 
     >>> # Now we'll decrypt it, using the convience way to get the
     >>> # passphrase to GnuPG
-    >>> gnupg.passphrase = pass
+    >>> gnupg.passphrase = passphrase
     >>> p2 = gnupg.run(['--decrypt'], stdin=1, stdout=1 )
-    >>> p2.handles['stdin'].write(out)
+    >>> p2.handles['stdin'].write(out1)
     >>> p2.handles['stdin'].close()
     >>> out2 = p2.handles['stdout'].read()
     >>> p2.handles['stdout'].close()
     >>> e = os.waitpid(p2.pid, 0)[1]
     >>> if e != 0:
-    >>>     raise IOError, "GnuPG exited non-zero, with status" + repr(e)
-    >> 
+    ...     raise IOError, "GnuPG exited non-zero, with status" + repr(e)
+    >>> 
+    >>> # Our decrypted plaintext:
     >>> out2
     'Three blind mice'
+    >>>
+    >>> # ...and it's the same as what we orignally encrypted
     >>> text == out2
     1
     
     Instance attributes of a GnuPGInterface object are:
     
-    * call -- string to call GnuPG with
+    * call -- string to call GnuPG with.  Defaults to "gpg"
 
     * passphrase -- Since it is a common operation
       to pass in a passphrase to GnuPG,
@@ -299,6 +303,14 @@ class Options:
     
     extra_args -- Extra option arguments may be passed in
     via the attribute extra_args, a list.
+
+    >>> import GnuPGInterface
+    >>> gnupg = GnuPGInterface.GnuPGInterface()
+    >>> gnupg.options.armor = 1
+    >>> gnupg.options.recipients = ['Alice', 'Bob']
+    >>> gnupg.options.extra_args = ['--no-secmem-warning']
+    >>> gnupg.options.get_args()
+    ['--armor', '--recipient', 'Alice', '--recipient', 'Bob', '--no-secmem-warning']
     """
     
     def __init__(self):
@@ -383,7 +395,7 @@ class Options:
 class Process:
     """# gnupg is a GnuPGInterface.GnuPGInterface object
     process = gnupg.run( [ '--decrypt' ], stdout = 1 )
-    g_stdout = process.handles['stdout']
+    out = process.handles['stdout'].read()
     ...
     os.waitpid( process.pid, 0 )
     
@@ -392,15 +404,13 @@ class Process:
     
     Data Attributes
     
-    handles:
-    This is a map of filehandle-names to the file handles, if any, that were
-    requested via run() and hence
+    handles -- This is a map of filehandle-names to
+    the file handles, if any, that were requested via run() and hence
     are connected to the running GnuPG process.  Valid names
     of this map are only those handles that were requested.
       
-    pid
-    The PID of the spawned
-    GnuPG process.  Useful to know, since once should call
+    pid -- The PID of the spawned GnuPG process.
+    Useful to know, since once should call
     os.waitpid() to clean up the process, especially
     if multiple calls are made to run().
     """

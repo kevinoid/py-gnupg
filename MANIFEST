@@ -3,8 +3,4 @@ ChangeLog
 GnuPGInterface.py
 MANIFEST
 README
-docs/index.html
-docs/style/basics.css
-docs/style/main.css
-docs/style/midnight.css
 setup.py
