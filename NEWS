@@ -1,6 +1,9 @@
     *	PYTHON VERSION DEPENDENCY CHANGE:
 	GnuPGInterface now requires Python 2.2.
 
+    *	Classes now use __slots__ to help catch typos.
+
+
 Noteworthy changes in 0.3.2
 -----------------------------------------------------------------
 
