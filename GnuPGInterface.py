@@ -222,7 +222,7 @@ or see http://www.gnu.org/copyleft/lesser.html
 
 import os
 import sys
-import fcntl, FCNTL
+import fcntl
 
 __author__   = "Frank J. Tobin, ftobin@neverending.org"
 __version__  = "0.3.1"
@@ -425,7 +425,7 @@ class GnuPG:
         for k, p in process._pipes.items():
             if p.direct and k not in _stds:
                 # we want the fh to stay open after execing
-                fcntl.fcntl( p.child, FCNTL.F_SETFD, 0 )
+                fcntl.fcntl( p.child, fcntl.F_SETFD, 0 )
         
         fd_args = []
         
