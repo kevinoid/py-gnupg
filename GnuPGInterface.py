@@ -122,6 +122,9 @@ class GnuPGInterface:
 	'["--sign", "--encrypt"]'
 	Returns a GnuPGInterface.Process object.
 	
+	args is an optional list of GnuPG command arguments (not options),
+	such as keyID's to export, filenames to process, etc.
+	
 	fh_request's are named parameters corresponding to filehandle
 	names to be connected with the GnuPG process.  Valid names are:
 	stdin, stdout, stderr, passphrase, command, logger, and status.
@@ -159,14 +162,16 @@ class GnuPGInterface:
 	gnupg.run(["--decrypt"], stdin= f)
         """
         
-        for std in _stds: fh_requests.setdefault( std, getattr( sys, std ) )
+	if args == None: args = []
+	
+        for std in _stds: fh_requests.setdefault( std, getattr(sys, std) )
         handle_passphrase = 0
         
         if self.passphrase != None and not fh_requests.has_key( 'passphrase' ):
             handle_passphrase = 1
             fh_requests['passphrase'] = 1
 
-        process = self._attach_fork_exec(gnupg_commands, fh_requests)
+        process = self._attach_fork_exec(gnupg_commands, args, fh_requests)
 
         if handle_passphrase:
             passphrase_fh = process.handles['passphrase']
@@ -177,7 +182,7 @@ class GnuPGInterface:
         return process
     
     
-    def _attach_fork_exec(self, gnupg_commands, fh_requests):
+    def _attach_fork_exec(self, gnupg_commands, args, fh_requests):
         """This is like run(), but without the passphrase-helping
 	(note that run() calls this)."""
 	
@@ -202,10 +207,10 @@ class GnuPGInterface:
         
         process.pid = os.fork()
         
-        if process.pid == 0: self._as_child(process, gnupg_commands)
+        if process.pid == 0: self._as_child(process, gnupg_commands, args)
         return self._as_parent(process)
-
-
+    
+    
     def _as_parent(self, process):
         """Stuff run after forking in parent"""
         for p in process._pipes.values():
@@ -219,7 +224,7 @@ class GnuPGInterface:
         return process
 
 
-    def _as_child(self, process, gnupg_commands):
+    def _as_child(self, process, gnupg_commands, args):
         """Stuff run after forking in child"""
         # child
         for std in _stds:
@@ -239,9 +244,13 @@ class GnuPGInterface:
             if k not in _stds: fd_args.extend( [ _fd_options[k], `p[_child]` ] )
             if not p[_direct]: os.close( p[_parent] )
             
-        command = [ self.call ] + fd_args + self.options.get_args() + gnupg_commands
+        command = [ self.call ] + fd_args + self.options.get_args() + gnupg_commands + args
         os.execvp( command[0], command )
 
+
+	def _get_full_args(self, gnupg_commands, args, fd_args):
+	    [ self.call ] + fd_args + self.options.get_args() \
+	      + gnupg_commands + args
         
 
 class Options:
