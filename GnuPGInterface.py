@@ -421,8 +421,8 @@ class GnuPG(object):
         """Stuff run after forking in child"""
         # child
         for std in _stds:
-            p = process._pipes[std]
-            os.dup2( p.child, getattr(sys, "__%s__" % std).fileno() )
+            os.dup2(process._pipes[std].child,
+                    getattr(sys, "__%s__" % std).fileno() )
         
         for k, p in process._pipes.items():
             if p.direct and k not in _stds:
