@@ -310,7 +310,7 @@ class GnuPG:
 	For instance:
         
 	    f = open("encrypted.gpg")
-            gnupg.run(["--decrypt"], create_fhs={'stdin': f})
+            gnupg.run(["--decrypt"], attach_fhs={'stdin': f})
 
         Using attach_fhs also helps avoid system buffering
         issues that can arise when using create_fhs, which
