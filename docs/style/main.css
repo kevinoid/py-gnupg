@@ -1,0 +1,92 @@
+@import url(basics.css);
+
+body {
+  background-color: white;
+  color: black;
+}
+
+h1 {
+  color: #c33;
+  background-color: transparent;
+  text-align: center;
+}
+
+h2
+{
+  color: navy;
+  background-color: transparent;
+}
+
+h3
+{
+  color: #006400;
+  background-color: transparent;
+  margin-left: 2%;
+  margin-right: 2%;
+}
+
+h4
+{
+  margin-left: 4%;
+  margin-right: 4%;
+}
+
+h5
+{
+  margin-left: 6%;
+  margin-right: 6%;
+}
+
+h6
+{
+  margin-left: 7%;
+  margin-right: 7%;
+}
+
+blockquote {
+  margin-left: 8%;
+  margin-right: 8%;
+  padding: .5em;
+  border: thin solid #dc143c;
+}
+
+.error
+{
+  color: #DC143C;
+  background-color: transparent;
+  text-decoration: none
+}
+
+.warning
+{
+  color: #FF4500;
+  background-color: transparent;
+  text-decoration: none;
+}
+
+.error strong
+{
+  color: #DC143C;
+  background-color: #FFD700;
+}
+
+.warning strong
+{
+  color: #FF4500;
+  background-color: #FFD700;
+}
+
+
+pre.email
+{
+  padding: 1em;
+  border-style: dotted;
+  color: navy;
+  background-color: transparent;
+  font-family: sans-serif;
+}
+
+a:hover
+{
+  background-color: #FFE4E1;
+}

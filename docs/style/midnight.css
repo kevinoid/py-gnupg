@@ -1,0 +1,82 @@
+@import url(basics.css);
+
+body {
+  background-color: black;
+  color: white;
+}
+
+h1 {
+  color: yellow;
+  background-color: inherit;
+  text-align: center;
+}
+
+h2 {
+  color: #33CCFF;
+  background-color: inherit;
+}
+
+h3 {
+  color: #99CCFF;
+  background-color: inherit;
+  font-weight: bold;
+  margin-left: 2%;
+  margin-right: 2%;
+}
+
+h4 {
+  color: #CC9999;
+  background-color: inherit;
+  font-weight: bold;
+  margin-left: 4%;
+  margin-right: 4%;
+}
+
+h5 {
+  margin-left: 4%;
+  margin-right: 4%;
+}
+
+blockquote {
+  margin-left: 8%;
+  margin-right: 8%;
+  padding: .5em;
+  border: thin solid #dc143c;
+}
+
+.note {
+  font-size: 70%;
+}
+
+.error {
+  color: red;
+  background-color: inherit;
+  text-decoration: none
+}
+
+.warning {
+  color: #FFCC00;
+  background-color: inherit;
+  text-decoration: none;
+}
+
+.required {
+  font-weight: bold;
+}
+
+.good-quote {
+  color: #00FFFF;
+  background-color: inherit;
+}
+
+pre.email {
+  padding: 1em;
+  border-style: dotted;
+  border-color: teal;
+  font-family: sans-serif;
+}
+
+a, strong {
+  color: #FFFFCC;
+  background-color: inherit;
+}
