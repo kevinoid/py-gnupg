@@ -43,11 +43,6 @@ _fd_options = { 'passphrase': '--passphrase-fd',
                 'status': '--status-fd',
                 'command': '--command-fd' }
 
-# constants
-_parent = 0
-_child = 1
-_direct = 2
-
 class GnuPGInterface:
     """Class representing a GnuPG interface.
     
@@ -292,11 +287,12 @@ class GnuPGInterface:
                 raise ValueError, \
                       "cannot have filehandle '%s' in both create_fhs and attach_fhs" \
                       % fh_name
-            
-            process._pipes[fh_name] = os.pipe() + (0,)
+
+            pipe = os.pipe()
+            process._pipes[fh_name] = Pipe(pipe[0], pipe[1], 0)
         
         for fh_name, fh in attach_fhs.items():
-            process._pipes[fh_name] = (fh.fileno(), fh.fileno(), 1)
+            process._pipes[fh_name] = Pipe(fh.fileno(), fh.fileno(), 1)
         
         process.pid = os.fork()
         
@@ -307,9 +303,9 @@ class GnuPGInterface:
     def _as_parent(self, process):
         """Stuff run after forking in parent"""
         for k, p in process._pipes.items():
-            if not p[_direct]:
-                os.close(p[_child])
-                process.handles[k] = os.fdopen(p[_parent], _fd_modes[k])
+            if not p.direct:
+                os.close(p.child)
+                process.handles[k] = os.fdopen(p.parent, _fd_modes[k])
         
         # user doesn't need these
         del process._pipes
@@ -322,28 +318,34 @@ class GnuPGInterface:
         # child
         for std in _stds:
             p = process._pipes[std]
-            os.dup2( p[_child],
-                     getattr(sys, "__%s__" % std).fileno() )
+            os.dup2( p.child, getattr(sys, "__%s__" % std).fileno() )
         
         for k, p in process._pipes.items():
-            if p[_direct] and k not in _stds:
+            if p.direct and k not in _stds:
                 # we want the fh to stay open after execing
-                fcntl.fcntl( p[_child], FCNTL.F_SETFD, 0 )
+                fcntl.fcntl( p.child, FCNTL.F_SETFD, 0 )
         
         fd_args = []
         
         for k, p in process._pipes.items():
             # set command-line options for non-standard fds
             if k not in _stds:
-                fd_args.extend([ _fd_options[k], "%d" % p[_child] ])
+                fd_args.extend([ _fd_options[k], "%d" % p.child ])
             
-            if not p[_direct]:
-                os.close(p[_parent])
+            if not p.direct: os.close(p.parent)
         
         command = [ self.call ] + fd_args + self.options.get_args() \
                   + gnupg_commands + args
 
         os.execvp( command[0], command )
+
+    
+class Pipe:
+    """simple struct holding stuff about pipes we use"""
+    def __init__(self, parent, child, direct):
+        self.parent = parent
+        self.child = child
+        self.direct = direct
 
 
 class Options:
