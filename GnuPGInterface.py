@@ -159,9 +159,9 @@ ciphertext.
 >>> # just a small sanity test here for doctest
 >>> import types
 >>> assert type(ciphertext) == types.StringType, \
-           "What GnuPG gave back isn't a string!"
+           "What GnuPG gave back is not a string!"
 
-Here's an example of generating a key:
+Here is an example of generating a key:
 >>> import GnuPGInterface
 >>> gnupg = GnuPGInterface.GnuPG()
 >>> gnupg.options.meta_interactive = 0
