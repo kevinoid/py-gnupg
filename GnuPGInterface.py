@@ -247,7 +247,7 @@ _fd_options = { 'passphrase': '--passphrase-fd',
                 'status':     '--status-fd',
                 'command':    '--command-fd' }
 
-class GnuPG:
+class GnuPG(object):
     """Class instances represent GnuPG.
     
     Instance attributes of a GnuPG object are:
@@ -268,6 +268,8 @@ class GnuPG:
       the command-line options used when calling GnuPG.
     """
 
+    __slots__ = ['call', 'passphrase', 'options']
+    
     def __init__(self):
         self.call = 'gpg'
         self.passphrase = None
@@ -442,15 +444,17 @@ class GnuPG:
         os.execvp( command[0], command )
 
     
-class Pipe:
+class Pipe(object):
     """simple struct holding stuff about pipes we use"""
+    __slots__ = ['parent', 'child', 'direct']
+    
     def __init__(self, parent, child, direct):
         self.parent = parent
         self.child = child
         self.direct = direct
 
 
-class Options:
+class Options(object):
     """Objects of this class encompass options passed to GnuPG.
     This class is responsible for determining command-line arguments
     which are based on options.  It can be said that a GnuPG
@@ -521,39 +525,35 @@ class Options:
     >>> gnupg.options.get_args()
     ['--armor', '--recipient', 'Alice', '--recipient', 'Bob', '--no-secmem-warning']
     """
+
+    booleans = ('armor', 'no_greeting',  'verbose',    'no_verbose',
+                'batch', 'always_trust', 'rfc1991',    'openpgp',
+                'quiet', 'no_options',   'textmode',   'force_v3_sigs')
+    
+    metas = ('meta_pgp_5_compatible', 'meta_pgp_2_compatible',
+             'meta_interactive')
+
+    strings = ('homedir', 'default_key', 'comment', 'compress_algo',
+               'options')
+
+    lists = ('encrypt_to', 'recipients')
+
+    __slots__ = booleans + metas + strings + lists + ('extra_args',)
     
     def __init__(self):
-        # booleans
-        self.armor = 0
-        self.no_greeting = 0
-        self.verbose = 0
-        self.no_verbose = 0
-        self.quiet = 0
-        self.batch = 0
-        self.always_trust = 0
-        self.rfc1991 = 0
-        self.openpgp = 0
-        self.force_v3_sigs = 0
-        self.no_options = 0
-        self.textmode = 0
-
-        # meta-option booleans
-        self.meta_pgp_5_compatible = 0
-        self.meta_pgp_2_compatible = 0
+        for b in self.booleans:
+            setattr(self, b, 0)
+            
+        for m in self.metas:
+            setattr(self, m, 0)
         self.meta_interactive = 1
 
-        # strings
-        self.homedir = None
-        self.default_key = None
-        self.comment = None
-        self.compress_algo = None
-        self.options = None
+        for s in self.strings:
+            setattr(self, s, None)
 
-        # lists
-        self.encrypt_to = []
-        self.recipients = []
-        
-        # miscellaneous arguments
+        for l in self.lists:
+            setattr(self, l, [])
+
         self.extra_args = []
     
     def get_args( self ):
@@ -601,7 +601,7 @@ class Options:
         return args
 
 
-class Process:
+class Process(object):
     """Objects of this class encompass properties of a GnuPG
     process spawned by GnuPG.run().
     
@@ -623,6 +623,7 @@ class Process:
     os.waitpid() to clean up the process, especially
     if multiple calls are made to run().
     """
+    __slots__ = ['_pipes', 'handles', 'pid', '_waited']
     
     def __init__(self):
         self._pipes  = {}
