@@ -9,3 +9,6 @@ To install this distribution, simply run the following:
 	python setup.py install
 
 See the documentation included in the 'docs' directory for more information.
+
+This module is distributed under the GNU General Public License,
+copyright Frank J. Tobin, ftobin@uiuc.edu

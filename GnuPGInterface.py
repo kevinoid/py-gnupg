@@ -1,10 +1,16 @@
-"""Interface to GNU Privacy Guard (GnuPG).
-See class GnuPGInterface and class Options"""
+"""Interface to GNU Privacy Guard (GnuPG)
+
+by Frank Tobin, ftobin@uiuc.edu
+"""
+
+# $Id$
 
 import os
 import sys
 import types
 import fcntl, FCNTL
+
+__version__ = "$Revision$"
 
 # "standard" filehandles attached to processes
 _stds = [ 'stdin', 'stdout', 'stderr' ]
@@ -32,20 +38,72 @@ _direct = 2
 
 class GnuPGInterface:
     """Class representing a GnuPG interface.
-    Attributes of a GnuPGInterface object are:
     
-    call: string to call GnuPG with
+    Example:
 
-    passphrase: If set, and no passphrase file object is sent in to run(),
-    then GnuPGInterface will take care of sending the passphrase to GnuPG,
-    instead of having the user sent it in manually.
-    Convience method.
+    >>> import os
+    >>> import GnuPGInterface
+    >>> 
+    >>> text = "Three blind mice"
+    >>> pass = "This is the pass"
+    >>> 
+    >>> gnupg = GnuPGInterface.GnuPGInterface()
+    >>> gnupg.options.armor = 1
+    >>> gnupg.options.meta_interactive = 0
+    >>> gnupg.options.extra_args.append('--no-secmem-warning')
+    >>> 
+    >>> # Normally we might specify something in
+    >>> # gnupg.options.recipients(), but since we're doing
+    >>> # symmetric-only encryption, it's not needed.
+    >>> # If you are doing standard, public-key encryption
+    >>> # you will need to specify recipients.
+    >>> 
+    >>> # First we'll encrypt the text input symmetrically
+    >>> p1 = gnupg.run(['--symmetric'], stdin=1, stdout=1, passphrase=1)
+    >>> p1.handles['passphrase'].write(pass)
+    >>> p1.handles['passphrase'].close()
+    >>> p1.handles['stdin'].write(text)
+    >>> p1.handles['stdin'].close()
+    >>> out1 = p1.handles['stdout'].read()
+    >>> p1.handles['stdout'].close()
+    >>> # Checking to make sure GnuPG exited successfully
+    >>> e = os.waitpid(p1.pid, 0)[1]
+    >>> if e != 0:
+    >>>     raise IOError, "GnuPG exited non-zero, with status" + repr(e)
+    >>> 
+    >>> # Now we'll decrypt it, using the convience way to get the
+    >>> # passphrase to GnuPG
+    >>> gnupg.passphrase = pass
+    >>> p2 = gnupg.run(['--decrypt'], stdin=1, stdout=1 )
+    >>> p2.handles['stdin'].write(out)
+    >>> p2.handles['stdin'].close()
+    >>> out2 = p2.handles['stdout'].read()
+    >>> p2.handles['stdout'].close()
+    >>> e = os.waitpid(p2.pid, 0)[1]
+    >>> if e != 0:
+    >>>     raise IOError, "GnuPG exited non-zero, with status" + repr(e)
+    >> 
+    >>> out2
+    'Three blind mice'
+    >>> text == out2
+    1
+    
+    Instance attributes of a GnuPGInterface object are:
+    
+    * call -- string to call GnuPG with
 
-    pid: After run is called, will be set to the pid of the
-    running GnuPG process.
-
-    options: Object of type Options.  Attribute-setting in options determines
-    the command-line options used when calling GnuPG.
+    * passphrase -- Since it is a common operation
+      to pass in a passphrase to GnuPG,
+      and working with the passphrase filehandle mechanism directly
+      can be mundane, if set, the passphrase attribute
+      works in a special manner.  If the passphrase attribute is set, 
+      and no passphrase file object is sent in to run(),
+      then GnuPGInterface will take care of sending the passphrase to GnuPG,
+      instead of having the user sent it in manually.
+      
+    * options -- Object of type GnuPGInterface.Options. 
+      Attribute-setting in options determines
+      the command-line options used when calling GnuPG.
     """
 
     def __init__(self):
@@ -53,13 +111,48 @@ class GnuPGInterface:
         self.passphrase = None
         self.options = Options()
     
-    def run(self, gnupg_commands, **fh_requests):
-        """Standard call to a GnuPGInterface object.
-	Invokes GnuPG, attaching filehandles as the user desires.
-	After calling run(), one should call os.waitpid()
-	to clean-up the process.
+    def run(self, gnupg_commands, args=None, **fh_requests):
+	"""Calls GnuPG with the list of string commands gnupg_commands,
+	complete with prefixing dashes.
+	For example, gnupg_commands could be
+	'["--sign", "--encrypt"]'
+	Returns a GnuPGInterface.Process object.
 	
-	This is where passphrase-helping comes in.
+	fh_request's are named parameters corresponding to filehandle
+	names to be connected with the GnuPG process.  Valid names are:
+	stdin, stdout, stderr, passphrase, command, logger, and status.
+	
+	The purpose of each filehandle is described in the GnuPG documentation.
+	
+	Valid values for each filehandle name are either
+	non-FileObject booleans, or FileObjects.
+	If not set, fh_request's which are a std* are defaulted
+	to the running process' version of handle.
+	Otherwise, that type of handle is simply not used when calling GnuPG>
+	For example, if you do not care about getting data from GnuPG's
+	status filehandle, simply do not specify it.
+	
+	If a filehandle name has a non-FileObject value which is true,
+	after run() returns, the returned GnuPGInterface.Process</a>
+	object will have an attribute of handles,
+	which is a mapping from the handle name (such as stdin or command)
+	to the respective FileObject  connected to the GnuPGInterface object.
+	For instance, if the call was
+	'process = gnupg.run(["--decrypt"], stdin=1)',
+	after run returns 'process.handles["stdin"]'
+	is a file object connected to GnuPG's standard input,
+	and can be written to.
+	
+	If a non-FileObject boolean is sent in and is false, it is simply
+	as if it was never specified in the call.
+	
+	If a FileObject is given, then the GnuPG process will read/write
+	directly to/from that object.  This is useful if you want
+	GnuPG to read/write to/from an existing file.
+	For instance:
+
+	f = open("encrypted.gpg")
+	gnupg.run(["--decrypt"], stdin= f)
         """
         
         for std in _stds: fh_requests.setdefault( std, getattr( sys, std ) )
@@ -82,7 +175,7 @@ class GnuPGInterface:
     
     def _attach_fork_exec(self, gnupg_commands, fh_requests):
         """This is like run(), but without the passphrase-helping
-	(note that run() calls this)"""
+	(note that run() calls this)."""
 	
 	process = Process()
         
@@ -129,7 +222,7 @@ class GnuPGInterface:
             p = process._pipes[std]
             if not p[_direct]:
                 os.dup2( p[_child], getattr( sys, "__" + std + "__" ).fileno() )
-                
+	
         for k, p in process._pipes.items():
             if p[_direct] and k not in _stds:
                 # we want the fh to stay open after execing
@@ -148,9 +241,65 @@ class GnuPGInterface:
         
 
 class Options:
-    """Objects which encompass options passed to GnuPG.
+    """Objects of this class encompass options passed to GnuPG.
     Responsible for determining command-line arguments which
-    are based on options."""
+    are based on options.  It can be said that a GnuPGInterface
+    object has-a GnuPGInterface.Options object in its options attribute.
+
+    Attributes which correlate directly to GnuPG options:
+    
+    Each option here defaults to false or None, and is described in
+    GnuPG documentation.
+    
+    Booleans
+    
+      * armor
+      * no_greeting
+      * no_verbose
+      * quiet
+      * batch
+      * always_trust
+      * rfc1991
+      * openpgp
+      * force_v3_sigs
+      * no_options
+      * textmode
+    
+    Strings
+    
+      * homedir
+      * default_key
+      * comment
+      * compress_algo
+      * options
+    
+    Lists
+    
+      * recipients
+      * encrypt_to
+    
+    Meta options
+    
+    Meta options are options provided by this module that do
+    not correlate directly to any GnuPG option by name,
+    but are rather bundle of options used to accomplish
+    a specific goal, such as obtaining compatibility with PGP 5.
+    The actual arguments each of these reflects may change with time.  Each
+    defaults to false unless otherwise specified.
+    
+    meta_pgp_5_compatible -- If true, arguments are generated to try
+    to be compatible with PGP 5.x.
+      
+    meta_pgp_2_compatible -- If true, arguments are generated to try
+    to be compatible with PGP 2.x.
+    
+    meta_interactive -- If false, arguments are generated to try to
+    help the using program use GnuPG in a non-interactive
+    environment, such as CGI scripts.  Default is true.
+    
+    extra_args -- Extra option arguments may be passed in
+    via the attribute extra_args, a list.
+    """
     
     def __init__(self):
         # booleans
@@ -187,9 +336,12 @@ class Options:
         self.extra_args = []
     
     def get_args( self ):
+	"""Generate a list of GnuPG arguments based upon attributes."""
+	
         return self.get_meta_args() + self.get_option_args() + self.extra_args
 
     def get_option_args( self ):
+	"""Generate a list of standard, non-meta or extra arguments"""
         args = []
         if self.homedir != None: args.extend( [ '--homedir', self.homedir ] )
         if self.options != None: args.extend( [ '--options', self.options ] )
@@ -216,6 +368,7 @@ class Options:
         return args
 
     def get_meta_args( self ):
+	"""Get a list of generated meta-arguments"""
         args = []
 
         if self.meta_pgp_5_compatible: args.extend( [ '--compress-algo', '1',
@@ -228,7 +381,29 @@ class Options:
 
 
 class Process:
-    """Used to return information about the spawned GnuPG process"""
+    """# gnupg is a GnuPGInterface.GnuPGInterface object
+    process = gnupg.run( [ '--decrypt' ], stdout = 1 )
+    g_stdout = process.handles['stdout']
+    ...
+    os.waitpid( process.pid, 0 )
+    
+    Objects of this class encompass properties of a GnuPG
+    process spawned by GnuPGInterface's run()
+    
+    Data Attributes
+    
+    handles:
+    This is a map of filehandle-names to the file handles, if any, that were
+    requested via run() and hence
+    are connected to the running GnuPG process.  Valid names
+    of this map are only those handles that were requested.
+      
+    pid
+    The PID of the spawned
+    GnuPG process.  Useful to know, since once should call
+    os.waitpid() to clean up the process, especially
+    if multiple calls are made to run().
+    """
     
     def __init__(self):
         self._pipes = {}
@@ -237,35 +412,8 @@ class Process:
 
 
 def _test():
-    """Send some test input to GnuPG, get it back out, and see
-    if it matches.  We'll use --store since that doesn't
-    require a keyring or such."""
-    gnupg = GnuPGInterface()
-    gnupg.options.armor = 1
-    gnupg.options.extra_args.append( '--no-secmem-warning' )
-    
-    input1 = """To learn what is good and what is to be valued,
-    those truths which cannot be shaken or changed"""
-    
-    process1 = gnupg.run( [ '--store' ], stdin = 1, stdout = 1 )    
-    process1.handles['stdin'].write( input1 )
-    process1.handles['stdin'].close()
-
-    output1 = process1.handles['stdout'].read()
-    process1.handles['stdout'].close()
-    assert( os.waitpid( process1.pid, 0 )[1] == 0 )
-    
-    process2 = gnupg.run( [ '--decrypt' ], stdin = 1, stdout = 1 )
-    process2.handles['stdin'].write( output1 )
-    process2.handles['stdin'].close()
-    
-    output2 = process2.handles['stdout'].read()
-    process2.handles['stdout'].close()
-    assert( os.waitpid( process2.pid, 0 )[1] == 0 )
-    
-    assert( input1 == output2 )
-
-    print "okay"
+    import doctest, GnuPGInterface
+    return doctest.testmod(GnuPGInterface)
     
 if __name__ == '__main__':
     _test()
