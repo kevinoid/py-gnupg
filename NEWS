@@ -1,7 +1,7 @@
 Noteworthy changes in 0.3.0
 -----------------------------------------------------------------
 
-   *	Renamed class GnuPGInterface.GnuPGInterface to GnuPGInterface.GnuPG.
+    *	Renamed class GnuPGInterface.GnuPGInterface to GnuPGInterface.GnuPG.
 	Note only the class name has changed, note the module name.
 	The old class name is still supported for backwards compatbility.
 
