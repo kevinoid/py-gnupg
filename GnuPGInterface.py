@@ -22,7 +22,7 @@ import types
 import fcntl, FCNTL
 
 __author__  = "Frank J. Tobin ftobin@neverending.org"
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 # "standard" filehandles attached to processes
 _stds = [ 'stdin', 'stdout', 'stderr' ]

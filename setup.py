@@ -9,7 +9,7 @@ This module is based on GnuPG::Interface, a Perl module by the same author.
 """
 
 distutils.core.setup( name = 'GnuPGInterface',
-                      version = '0.1.0',
+                      version = '0.2.0',
                       description = 'GnuPG interactions with file handles',
 		      long_description = long_description,
                       author = 'Frank J. Tobin',
