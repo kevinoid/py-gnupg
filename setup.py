@@ -1,3 +1,4 @@
+import GnuPGInterface
 import distutils.core
 
 long_description = """
@@ -9,7 +10,7 @@ This module is based on GnuPG::Interface, a Perl module by the same author.
 """
 
 distutils.core.setup( name = 'GnuPGInterface',
-                      version = '0.3.2',
+                      version = GnuPGInterface.__version__,
                       description = 'GnuPG interactions with file handles',
 		      long_description = long_description,
                       author = 'Frank J. Tobin',
