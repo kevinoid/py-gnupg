@@ -358,7 +358,7 @@ class Options:
     Each option here defaults to false or None, and is described in
     GnuPG documentation.
     
-    Booleans
+    Booleans (set these attributes to booleans)
     
       * armor
       * no_greeting
@@ -372,7 +372,7 @@ class Options:
       * no_options
       * textmode
     
-    Strings
+    Strings (set these attributes to strings)
     
       * homedir
       * default_key
@@ -380,9 +380,9 @@ class Options:
       * compress_algo
       * options
     
-    Lists
+    Lists (set these attributes to lists)
     
-      * recipients
+      * recipients  (***NOTE*** this is NOT 'recipient')
       * encrypt_to
     
     Meta options
@@ -453,9 +453,9 @@ class Options:
     def get_args( self ):
 	"""Generate a list of GnuPG arguments based upon attributes."""
 	
-        return self.get_meta_args() + self.get_option_args() + self.extra_args
+        return self.get_meta_args() + self.get_standard_args() + self.extra_args
 
-    def get_option_args( self ):
+    def get_standard_args( self ):
 	"""Generate a list of standard, non-meta or extra arguments"""
         args = []
         if self.homedir != None: args.extend( [ '--homedir', self.homedir ] )
