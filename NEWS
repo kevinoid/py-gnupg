@@ -4,6 +4,8 @@ Noteworthy changes in 0.3.2
     *	Internally use fcntl instead of FCNTL, which is deprecated
 	as of Python 2.2.
 
+    *	Small other fixes in code and docs.
+
 Noteworthy changes in 0.3.1
 -----------------------------------------------------------------
 
