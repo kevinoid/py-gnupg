@@ -158,7 +158,7 @@ ciphertext.
 >>>
 >>> # just a small sanity test here for doctest
 >>> import types
->>> assert type(ciphertext) == types.StringType, \
+>>> assert isinstance(ciphertext, types.StringType), \
            "What GnuPG gave back is not a string!"
 
 Here is an example of generating a key:
