@@ -1,3 +1,6 @@
+    *	PYTHON VERSION DEPENDENCY CHANGE:
+	GnuPGInterface now requires Python 2.2.
+
 Noteworthy changes in 0.3.2
 -----------------------------------------------------------------
 
