@@ -1,0 +1,141 @@
+<doc title="salias">
+  <h1>salias</h1>
+
+  <h2>Introduction</h2>
+  
+  <p>
+    <dfn>salias</dfn> is a command-line tool to alias
+    arguments of other programs.  Originally conceived
+    to provide key-collection aliasing for
+    <a href="http://www.gnupg.org/">GnuPG</a>, salias
+    has developed into much more general tool,
+    capable of dealing with any program where a collection
+    of options could be aliased together.
+  </p>
+  
+  <h2>Examples</h2>
+
+  <h3>Configuration file</h3>
+  
+  <p>
+    Let's assume we have the following configuration file
+    (standard location is ~/.salias/config.xml)::
+  </p>
+
+<pre>
+&lt;config&gt;
+      
+  &lt;context name="gpg" default="gnupg"&gt;
+	
+	&lt;aliases&gt;
+	  
+	  &lt;alias name="frank"&gt;
+	    &lt;value&gt;4F863BBBA8166F0A340F600356FFD10A260C4FA3&lt;/value&gt;
+	  &lt;/alias&gt;
+	  
+	  &lt;alias name="mykey"&gt;
+	    &lt;value&gt;0x1234ABCD&lt;/value&gt;
+	  &lt;/alias&gt;
+	  
+	  &lt;alias name="project-list"&gt;
+	    &lt;value&gt;frank&lt;/value&gt;
+	    &lt;value&gt;bob&lt;/value&gt;
+	    &lt;value&gt;mykey&lt;/value&gt;
+	  &lt;/alias&gt;
+	  
+	&lt;/aliases&gt;
+	
+  &lt;/context&gt;
+      
+&lt;/config&gt;
+</pre>
+
+  <h3>Command-line usage</h3>
+  
+  <p>
+    Given such a configuration file, we can use it for the
+    following argument-alias expansions:
+  </p>
+  
+  <ul>
+    <li>
+      <kbd>salias gpg -r frank -r mykey --encrypt</kbd><br />
+	    becomes:<br />
+	      <kbd>gpg -r 4F863BBBA8166F0A340F600356FFD10A260C4FA3 -r 0x1234ABCD --encrypt</kbd>
+    </li>
+    <li>
+      <kbd>salias gpg --list-keys frank mykey</kbd><br />
+	becomes:<br />
+	  <kbd>gpg --list-keys 4F863BBBA8166F0A340F600356FFD10A260C4FA3 0x1234ABCD</kbd>
+    </li>
+    <li>
+      <kbd>salias gpg -r project-list --encrypt</kbd><br />
+	becomes:<br />
+	  <kbd>gpg -r 4F863BBBA8166F0A340F600356FFD10A260C4FA3 -r bob -r 0x1234ABCD --encrypt</kbd>
+    </li>
+    <li>
+      <kbd>salias gpg --default-key mykey --sign</kbd><br />
+	becomes:<br />
+	  <kbd>gpg --default-key 0x1234ABCD --sign</kbd>
+    </li>
+    
+  </ul>
+  
+  <h2>Transparent Wraping</h2>
+  
+  <p>
+    Sure, it's nice to be able to alias arguments when using
+    the shell and prefixing the command salias, but what about
+    other programs that you might want to use these aliases
+    transparently?  You don't want to modify them to have to
+    call salias, or have any knowledge of it whatsoever.  What
+    you want is a completely transparent drop-in.
+  </p>
+  
+  <p>
+    There are two ways to go about this: you can simply
+    alias, say, <kbd>gpg</kbd> to <kbd>salias gpg</kbd>,
+    or, so that other programs which would use <kbd>gpg</kbd>
+    directly, you can create a wrapper script.
+  </p>
+  
+  <h2>Using a wrapper script</h2>
+  
+  <p>
+    Fortunately, you can insert salias transparently by using a
+    wrapper script around the calls to the real program you are aliasing for.
+    Take for instance, <kbd>gpg></kbd>.
+    By having the file named <kbd>/usr/local/bin/gpg</kbd>
+    actually be a wrapper script that calls <kbd>/usr/local/bin.real/gpg</kbd>,
+    we can insert salias transparently.
+  </p>
+  
+  <p>
+    Here's an example of a flexible wrapper script that you could link
+    every executable you want salias to handle on the system to,
+    after renaming the real programs to <kbd>/usr/local/bin.real/</kbd>:
+  </p>
+  
+<pre class="example">
+#!/bin/sh
+real_dir=&quot;/usr/local/bin.real/&quot;
+base=`basename $0`
+exec salias --context $base $real_dir/$base &quot;$@&quot;
+</pre>
+
+  <p>
+    For example, you could simply move the real <kbd>gpg</kbd> to
+    <kbd>/usr/local/bin.real/gpg</kbd>,
+    link <kbd>/usr/local/bin/gpg</kbd> to this wrapper
+    script, and it would call <kbd>salias</kbd>, which in turn would call the
+    real <kbd>gpg</kbd> properly, with the aliased arguments.
+  </p>
+  
+  <h2>More documentation</h2>
+  
+  <p>
+    For more documentation, it would be good read
+    the <a href="http://sourceforge.net/docman/display_doc.php?docid=3879&amp;group_id=18828">standard documentation</a>
+    for salias.
+  </p>
+</doc>
