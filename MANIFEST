@@ -5,5 +5,6 @@ MANIFEST
 NEWS
 README
 THANKS
+setup.cfg
 setup.py
 unittests.py
