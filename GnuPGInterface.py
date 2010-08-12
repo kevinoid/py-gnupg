@@ -483,6 +483,8 @@ class Options(object):
     
       * homedir
       * default_key
+      * keyring
+      * secret_keyring
       * comment
       * compress_algo
       * options
@@ -534,7 +536,7 @@ class Options(object):
              'meta_interactive')
 
     strings = ('homedir', 'default_key', 'comment', 'compress_algo',
-               'options')
+               'options', 'keyring', 'secret_keyring')
 
     lists = ('encrypt_to', 'recipients')
 
@@ -569,6 +571,8 @@ class Options(object):
         if self.comment != None: args.extend( [ '--comment', self.comment ] )
         if self.compress_algo != None: args.extend( [ '--compress-algo', self.compress_algo ] )
         if self.default_key != None: args.extend( [ '--default-key', self.default_key ] )
+        if self.keyring != None: args.extend( [ '--keyring', self.keyring ] )
+        if self.secret_keyring != None: args.extend( [ '--secret-keyring', self.secret_keyring ] )
         
         if self.no_options: args.append( '--no-options' )
         if self.armor: args.append( '--armor' )
