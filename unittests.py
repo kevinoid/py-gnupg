@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 """py-unit tests for GnuPG
 
 COPYRIGHT:
