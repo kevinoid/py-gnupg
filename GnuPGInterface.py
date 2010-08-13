@@ -221,8 +221,14 @@ or see http://www.gnu.org/copyleft/lesser.html
 """
 
 import os
+import subprocess
 import sys
-import fcntl
+
+try:
+    import fcntl
+except ImportError:
+    # import success/failure is checked before use
+    pass
 
 __author__   = "Frank J. Tobin, ftobin@neverending.org"
 __version__  = "0.3.2"
@@ -393,19 +399,22 @@ class GnuPG(object):
             # so we have to 'turn the pipe around'
             # if we are writing
             if _fd_modes[fh_name] == 'w': pipe = (pipe[1], pipe[0])
+
+            # Close the parent end in child to prevent deadlock
+            if "fcntl" in globals():
+                fcntl.fcntl(pipe[0], fcntl.F_SETFD, fcntl.FD_CLOEXEC)
+
             process._pipes[fh_name] = Pipe(pipe[0], pipe[1], 0)
         
         for fh_name, fh in attach_fhs.items():
             process._pipes[fh_name] = Pipe(fh.fileno(), fh.fileno(), 1)
         
-        process.pid = os.fork()
-        
-        if process.pid == 0: self._as_child(process, gnupg_commands, args)
-        return self._as_parent(process)
+        self._launch_process(process, gnupg_commands, args)
+        return self._handle_pipes(process)
     
     
-    def _as_parent(self, process):
-        """Stuff run after forking in parent"""
+    def _handle_pipes(self, process):
+        """Deal with pipes after the child process has been created"""
         for k, p in process._pipes.items():
             if not p.direct:
                 os.close(p.child)
@@ -417,31 +426,24 @@ class GnuPG(object):
         return process
 
 
-    def _as_child(self, process, gnupg_commands, args):
-        """Stuff run after forking in child"""
-        # child
-        for std in _stds:
-            os.dup2(process._pipes[std].child,
-                    getattr(sys, "__%s__" % std).fileno() )
-        
-        for k, p in process._pipes.items():
-            if p.direct and k not in _stds:
-                # we want the fh to stay open after execing
-                fcntl.fcntl( p.child, fcntl.F_SETFD, 0 )
-        
+    def _launch_process(self, process, gnupg_commands, args):
+        """Run the child process"""
         fd_args = []
-        
         for k, p in process._pipes.items():
             # set command-line options for non-standard fds
             if k not in _stds:
                 fd_args.extend([ _fd_options[k], "%d" % p.child ])
-            
-            if not p.direct: os.close(p.parent)
-        
+
         command = [ self.call ] + fd_args + self.options.get_args() \
                   + gnupg_commands + args
 
-        os.execvp( command[0], command )
+        pproc = subprocess.Popen(command, \
+                stdin=process._pipes['stdin'].child, \
+                stdout=process._pipes['stdout'].child, \
+                stderr=process._pipes['stderr'].child, \
+                close_fds=not len(fd_args) > 0,
+                shell=False)
+        process.pid = pproc.pid
 
     
 class Pipe(object):
