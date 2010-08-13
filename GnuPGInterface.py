@@ -508,14 +508,14 @@ class GnuPG(object):
             # Create preexec function to close what we can
             preexec_fn = self._create_preexec_fn(process)
 
-        pproc = subprocess.Popen(command,
+        process._subproc = subprocess.Popen(command,
                 stdin=process._pipes['stdin'].child,
                 stdout=process._pipes['stdout'].child,
                 stderr=process._pipes['stderr'].child,
                 close_fds=not len(fd_args) > 0,
                 preexec_fn=preexec_fn,
                 shell=False)
-        process.pid = pproc.pid
+        process.pid = process._subproc.pid
 
     
 class Pipe(object):
@@ -701,21 +701,21 @@ class Process(object):
     os.waitpid() to clean up the process, especially
     if multiple calls are made to run().
     """
-    __slots__ = ['_pipes', 'handles', 'pid', '_waited']
+    __slots__ = ['_pipes', 'handles', 'pid', '_subproc']
     
     def __init__(self):
         self._pipes  = {}
         self.handles = {}
         self.pid     = None
-        self._waited = None
+        self._subproc = None
 
     def wait(self):
         """Wait on the process to exit, allowing for child cleanup.
         Will raise an IOError if the process exits non-zero."""
-        
-        e = os.waitpid(self.pid, 0)[1]
+
+        e = self._subproc.wait()
         if e != 0:
-            raise IOError, "GnuPG exited non-zero, with code %d" % (e << 8)
+            raise IOError, "GnuPG exited non-zero, with code %d" % e
 
 def _run_doctests():
     import doctest, GnuPGInterface
