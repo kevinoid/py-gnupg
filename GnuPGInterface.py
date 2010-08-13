@@ -220,6 +220,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 or see http://www.gnu.org/copyleft/lesser.html
 """
 
+import errno
 import os
 import subprocess
 import sys
@@ -425,6 +426,71 @@ class GnuPG(object):
         
         return process
 
+    def _create_preexec_fn(self, process):
+        """Create and return a function to do cleanup before exec
+
+        The cleanup function will close all file descriptors which are not
+        needed by the child process.  This is required to prevent unnecessary
+        blocking on the final read of pipes not set FD_CLOEXEC due to gpg
+        inheriting an open copy of the input end of the pipe.  This can cause
+        delays in unrelated parts of the program or deadlocks in the case that
+        one end of the pipe is passed to attach_fds.
+
+        FIXME:  There is a race condition where a pipe can be created in
+        another thread after this function runs before exec is called and it
+        will not be closed.  This race condition will remain until a better
+        way to avoid closing the error pipe created by submodule is identified.
+        """
+        if sys.platform == "win32":
+            return None     # No cleanup necessary
+
+        try:
+            MAXFD = os.sysconf("SC_OPEN_MAX")
+            if MAXFD == -1:
+                MAXFD = 256
+        except:
+            MAXFD = 256
+
+        # Get list of fds to close now, so we don't close the error pipe
+        # created by submodule for reporting exec errors
+        child_fds = [p.child for p in process._pipes.itervalues()]
+        child_fds.sort()
+        child_fds.append(MAXFD) # Sentinel value, simplifies code greatly
+
+        child_fds_iter = iter(child_fds)
+        child_fd = child_fds_iter.next()
+        while child_fd < 3:
+            child_fd = child_fds_iter.next()
+
+        extra_fds = []
+        # FIXME:  Is there a better (portable) way to list all open FDs?
+        for fd in xrange(3, MAXFD):
+            if fd > child_fd:
+                child_fd = child_fds_iter.next()
+
+            if fd == child_fd:
+                continue
+
+            try:
+                # Note:  Can't use lseek, can cause nul byte in pipes
+                #        where the position has not been set by read/write
+                #os.lseek(fd, os.SEEK_CUR, 0)
+                os.tcgetpgrp(fd)
+            except OSError as oe:
+                if oe.errno == errno.EBADF:
+                    continue
+
+            extra_fds.append(fd)
+
+        def preexec_fn():
+            for fd in extra_fds:
+                try:
+                    os.close(fd)
+                except OSError:
+                    pass
+
+        return preexec_fn
+
 
     def _launch_process(self, process, gnupg_commands, args):
         """Run the child process"""
@@ -437,11 +503,17 @@ class GnuPG(object):
         command = [ self.call ] + fd_args + self.options.get_args() \
                   + gnupg_commands + args
 
-        pproc = subprocess.Popen(command, \
-                stdin=process._pipes['stdin'].child, \
-                stdout=process._pipes['stdout'].child, \
-                stderr=process._pipes['stderr'].child, \
+        if len(fd_args) > 0:
+            # Can't close all file descriptors
+            # Create preexec function to close what we can
+            preexec_fn = self._create_preexec_fn(process)
+
+        pproc = subprocess.Popen(command,
+                stdin=process._pipes['stdin'].child,
+                stdout=process._pipes['stdout'].child,
+                stderr=process._pipes['stderr'].child,
                 close_fds=not len(fd_args) > 0,
+                preexec_fn=preexec_fn,
                 shell=False)
         process.pid = pproc.pid
 
