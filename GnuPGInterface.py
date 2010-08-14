@@ -225,6 +225,11 @@ import os
 import subprocess
 import sys
 
+if sys.platform == "win32":
+    # Required windows-only imports
+    import msvcrt
+    import _subprocess
+
 try:
     import fcntl
 except ImportError:
@@ -497,8 +502,21 @@ class GnuPG(object):
         fd_args = []
         for k, p in process._pipes.items():
             # set command-line options for non-standard fds
-            if k not in _stds:
-                fd_args.extend([ _fd_options[k], "%d" % p.child ])
+            if k in _stds:
+                continue
+
+            if sys.platform == "win32":
+                # Must pass inheritable os file handle
+                curproc = _subprocess.GetCurrentProcess()
+                pchandle = msvcrt.get_osfhandle(p.child)
+                pcihandle = _subprocess.DuplicateHandle(
+                        curproc, pchandle, curproc, 0, 1,
+                        _subprocess.DUPLICATE_SAME_ACCESS)
+                fdarg = int(pcihandle)
+            else:
+                # Must pass file descriptor
+                fdarg = p.child
+            fd_args.extend([ _fd_options[k], str(fdarg) ])
 
         command = [ self.call ] + fd_args + self.options.get_args() \
                   + gnupg_commands + args
