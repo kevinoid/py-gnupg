@@ -124,9 +124,11 @@ class GnuPGTests(BasicTest):
 
     def test_attach_fhs(self):
         """Do GnuPG operations using the attach_fhs feature"""
-        plaintext_source = '/etc/motd'
-        
-        plainfile = open(plaintext_source)
+        plaintext = "\n".join(["Test Line" for i in xrange(1, 100)])
+        plainfile = tempfile.TemporaryFile()
+        plainfile.write(plaintext)
+        plainfile.seek(0)
+
         temp1 = tempfile.TemporaryFile()
         temp2 = tempfile.TemporaryFile()
 
