@@ -124,9 +124,11 @@ class GnuPGTests(BasicTest):
 
     def test_attach_fhs(self):
         """Do GnuPG operations using the attach_fhs feature"""
-        plaintext_source = '/etc/motd'
-        
-        plainfile = open(plaintext_source)
+        plaintext = "\n".join(["Test Line" for i in xrange(1, 100)])
+        plainfile = tempfile.TemporaryFile()
+        plainfile.write(plaintext)
+        plainfile.seek(0)
+
         temp1 = tempfile.TemporaryFile()
         temp2 = tempfile.TemporaryFile()
 
@@ -142,6 +144,40 @@ class GnuPGTests(BasicTest):
         temp2.seek(0)
 
         assert fh_cmp(plainfile, temp2), \
+               "GnuPG decrypted output does not match original input"
+
+
+    def test_attach_fhs_pipe(self):
+        """Do GnuPG operations using the attach_fhs feature with a pipe
+
+        This is a bit of a torture test where we simulate a client that
+        passes a pipe end to gpg without setting the other end to close on
+        exec."""
+        plaintext = 'This is only a test.'
+
+        pipeout, pipein = os.pipe()
+        temp1 = tempfile.TemporaryFile()
+
+        proc = self.gnupg.run( ['--symmetric'],
+                               attach_fhs={
+                                   'stdin': os.fdopen(pipeout, 'r'),
+                                   'stdout': temp1 } )
+        os.write(pipein, plaintext)
+        os.close(pipein)
+        proc.wait()
+
+        temp1.seek(0)
+        pipeout, pipein = os.pipe()
+
+        proc = self.gnupg.run( ['--decrypt'],
+                               attach_fhs={
+                                    'stdin': temp1,
+                                    'stdout': os.fdopen(pipein, 'w') } )
+        plaintext2 = os.read(pipeout, 1024)
+        proc.wait()
+        os.close(pipeout)
+
+        assert plaintext == plaintext2, \
                "GnuPG decrypted output does not match original input"
 
 

@@ -220,9 +220,21 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 or see http://www.gnu.org/copyleft/lesser.html
 """
 
+import errno
 import os
+import subprocess
 import sys
-import fcntl
+
+if sys.platform == "win32":
+    # Required windows-only imports
+    import msvcrt
+    import _subprocess
+
+try:
+    import fcntl
+except ImportError:
+    # import success/failure is checked before use
+    pass
 
 __author__   = "Frank J. Tobin, ftobin@neverending.org"
 __version__  = "0.3.2"
@@ -393,19 +405,22 @@ class GnuPG(object):
             # so we have to 'turn the pipe around'
             # if we are writing
             if _fd_modes[fh_name] == 'w': pipe = (pipe[1], pipe[0])
+
+            # Close the parent end in child to prevent deadlock
+            if "fcntl" in globals():
+                fcntl.fcntl(pipe[0], fcntl.F_SETFD, fcntl.FD_CLOEXEC)
+
             process._pipes[fh_name] = Pipe(pipe[0], pipe[1], 0)
         
         for fh_name, fh in attach_fhs.items():
             process._pipes[fh_name] = Pipe(fh.fileno(), fh.fileno(), 1)
         
-        process.pid = os.fork()
-        
-        if process.pid == 0: self._as_child(process, gnupg_commands, args)
-        return self._as_parent(process)
+        self._launch_process(process, gnupg_commands, args)
+        return self._handle_pipes(process)
     
     
-    def _as_parent(self, process):
-        """Stuff run after forking in parent"""
+    def _handle_pipes(self, process):
+        """Deal with pipes after the child process has been created"""
         for k, p in process._pipes.items():
             if not p.direct:
                 os.close(p.child)
@@ -416,32 +431,109 @@ class GnuPG(object):
         
         return process
 
+    def _create_preexec_fn(self, process):
+        """Create and return a function to do cleanup before exec
 
-    def _as_child(self, process, gnupg_commands, args):
-        """Stuff run after forking in child"""
-        # child
-        for std in _stds:
-            os.dup2(process._pipes[std].child,
-                    getattr(sys, "__%s__" % std).fileno() )
-        
-        for k, p in process._pipes.items():
-            if p.direct and k not in _stds:
-                # we want the fh to stay open after execing
-                fcntl.fcntl( p.child, fcntl.F_SETFD, 0 )
-        
+        The cleanup function will close all file descriptors which are not
+        needed by the child process.  This is required to prevent unnecessary
+        blocking on the final read of pipes not set FD_CLOEXEC due to gpg
+        inheriting an open copy of the input end of the pipe.  This can cause
+        delays in unrelated parts of the program or deadlocks in the case that
+        one end of the pipe is passed to attach_fds.
+
+        FIXME:  There is a race condition where a pipe can be created in
+        another thread after this function runs before exec is called and it
+        will not be closed.  This race condition will remain until a better
+        way to avoid closing the error pipe created by submodule is identified.
+        """
+        if sys.platform == "win32":
+            return None     # No cleanup necessary
+
+        try:
+            MAXFD = os.sysconf("SC_OPEN_MAX")
+            if MAXFD == -1:
+                MAXFD = 256
+        except:
+            MAXFD = 256
+
+        # Get list of fds to close now, so we don't close the error pipe
+        # created by submodule for reporting exec errors
+        child_fds = [p.child for p in process._pipes.itervalues()]
+        child_fds.sort()
+        child_fds.append(MAXFD) # Sentinel value, simplifies code greatly
+
+        child_fds_iter = iter(child_fds)
+        child_fd = child_fds_iter.next()
+        while child_fd < 3:
+            child_fd = child_fds_iter.next()
+
+        extra_fds = []
+        # FIXME:  Is there a better (portable) way to list all open FDs?
+        for fd in xrange(3, MAXFD):
+            if fd > child_fd:
+                child_fd = child_fds_iter.next()
+
+            if fd == child_fd:
+                continue
+
+            try:
+                # Note:  Can't use lseek, can cause nul byte in pipes
+                #        where the position has not been set by read/write
+                #os.lseek(fd, os.SEEK_CUR, 0)
+                os.tcgetpgrp(fd)
+            except OSError as oe:
+                if oe.errno == errno.EBADF:
+                    continue
+
+            extra_fds.append(fd)
+
+        def preexec_fn():
+            for fd in extra_fds:
+                try:
+                    os.close(fd)
+                except OSError:
+                    pass
+
+        return preexec_fn
+
+
+    def _launch_process(self, process, gnupg_commands, args):
+        """Run the child process"""
         fd_args = []
-        
         for k, p in process._pipes.items():
             # set command-line options for non-standard fds
-            if k not in _stds:
-                fd_args.extend([ _fd_options[k], "%d" % p.child ])
-            
-            if not p.direct: os.close(p.parent)
-        
+            if k in _stds:
+                continue
+
+            if sys.platform == "win32":
+                # Must pass inheritable os file handle
+                curproc = _subprocess.GetCurrentProcess()
+                pchandle = msvcrt.get_osfhandle(p.child)
+                pcihandle = _subprocess.DuplicateHandle(
+                        curproc, pchandle, curproc, 0, 1,
+                        _subprocess.DUPLICATE_SAME_ACCESS)
+                fdarg = int(pcihandle)
+            else:
+                # Must pass file descriptor
+                fdarg = p.child
+            fd_args.extend([ _fd_options[k], str(fdarg) ])
+
         command = [ self.call ] + fd_args + self.options.get_args() \
                   + gnupg_commands + args
 
-        os.execvp( command[0], command )
+        if len(fd_args) > 0:
+            # Can't close all file descriptors
+            # Create preexec function to close what we can
+            preexec_fn = self._create_preexec_fn(process)
+
+        process._subproc = subprocess.Popen(command,
+                stdin=process._pipes['stdin'].child,
+                stdout=process._pipes['stdout'].child,
+                stderr=process._pipes['stderr'].child,
+                close_fds=not len(fd_args) > 0,
+                preexec_fn=preexec_fn,
+                shell=False)
+        process.pid = process._subproc.pid
 
     
 class Pipe(object):
@@ -627,21 +719,21 @@ class Process(object):
     os.waitpid() to clean up the process, especially
     if multiple calls are made to run().
     """
-    __slots__ = ['_pipes', 'handles', 'pid', '_waited']
+    __slots__ = ['_pipes', 'handles', 'pid', '_subproc']
     
     def __init__(self):
         self._pipes  = {}
         self.handles = {}
         self.pid     = None
-        self._waited = None
+        self._subproc = None
 
     def wait(self):
         """Wait on the process to exit, allowing for child cleanup.
         Will raise an IOError if the process exits non-zero."""
-        
-        e = os.waitpid(self.pid, 0)[1]
+
+        e = self._subproc.wait()
         if e != 0:
-            raise IOError, "GnuPG exited non-zero, with code %d" % (e << 8)
+            raise IOError, "GnuPG exited non-zero, with code %d" % e
 
 def _run_doctests():
     import doctest, GnuPGInterface
