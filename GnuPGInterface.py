@@ -244,13 +244,13 @@ __revision__ = "$Id$"
 _stds = [ 'stdin', 'stdout', 'stderr' ]
 
 # the permissions each type of fh needs to be opened with
-_fd_modes = { 'stdin':      'w',
-              'stdout':     'r',
-              'stderr':     'r',
-              'passphrase': 'w',
-              'command':    'w',
-              'logger':     'r',
-              'status':     'r'
+_fd_modes = { 'stdin':      'wb',
+              'stdout':     'rb',
+              'stderr':     'rb',
+              'passphrase': 'wb',
+              'command':    'wb',
+              'logger':     'rb',
+              'status':     'rb'
               }
 
 # correlation between handle names and the arguments we'll pass
@@ -404,7 +404,7 @@ class GnuPG(object):
             # that since pipes are unidirectional on some systems,
             # so we have to 'turn the pipe around'
             # if we are writing
-            if _fd_modes[fh_name] == 'w': pipe = (pipe[1], pipe[0])
+            if _fd_modes[fh_name][0] == 'w': pipe = (pipe[1], pipe[0])
 
             # Close the parent end in child to prevent deadlock
             if "fcntl" in globals():
