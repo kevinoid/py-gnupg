@@ -466,7 +466,7 @@ class GnuPG(object):
 
         # Get list of fds to close now, so we don't close the error pipe
         # created by submodule for reporting exec errors
-        child_fds = [p.child for p in process._pipes.itervalues()]
+        child_fds = [p.child for p in process._pipes.values()]
         child_fds.sort()
         child_fds.append(MAXFD) # Sentinel value, simplifies code greatly
 
