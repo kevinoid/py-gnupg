@@ -379,7 +379,10 @@ class GnuPG(object):
         
         if handle_passphrase:
             passphrase_fh = process.handles['passphrase']
-            passphrase_fh.write( self.passphrase )
+            if sys.version_info >= (3, 0) and isinstance(self.passphrase, str):
+                passphrase_fh.write( self.passphrase.encode() )
+            else:
+                passphrase_fh.write( self.passphrase )
             passphrase_fh.close()
             del process.handles['passphrase']
         
