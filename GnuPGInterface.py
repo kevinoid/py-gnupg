@@ -397,17 +397,15 @@ class GnuPG(object):
         
         for fh_name in create_fhs + list(attach_fhs.keys()):
             if fh_name not in _fd_modes:
-                raise KeyError, \
-                      "unrecognized filehandle name '%s'; must be one of %s" \
-                      % (fh_name, _fd_modes.keys())
+                raise KeyError("unrecognized filehandle name '%s'; must be one of %s" \
+                      % (fh_name, list(_fd_modes.keys())))
 
         for fh_name in create_fhs:
             # make sure the user doesn't specify a filehandle
             # to be created *and* attached
             if fh_name in attach_fhs:
-                raise ValueError, \
-                      "cannot have filehandle '%s' in both create_fhs and attach_fhs" \
-                      % fh_name
+                raise ValueError("cannot have filehandle '%s' in both create_fhs and attach_fhs" \
+                      % fh_name)
 
             pipe = os.pipe()
             # fix by drt@un.bewaff.net noting
@@ -743,7 +741,7 @@ class Process(object):
 
         e = self._subproc.wait()
         if e != 0:
-            raise IOError, "GnuPG exited non-zero, with code %d" % e
+            raise IOError("GnuPG exited non-zero, with code %d" % e)
 
 def _run_doctests():
     import doctest, GnuPGInterface
