@@ -469,7 +469,7 @@ class GnuPG(object):
 
         extra_fds = []
         # FIXME:  Is there a better (portable) way to list all open FDs?
-        for fd in xrange(3, MAXFD):
+        for fd in range(3, MAXFD):
             if fd > child_fd:
                 child_fd = child_fds_iter.next()
 

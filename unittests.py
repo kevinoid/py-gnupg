@@ -124,7 +124,7 @@ class GnuPGTests(BasicTest):
 
     def test_attach_fhs(self):
         """Do GnuPG operations using the attach_fhs feature"""
-        plaintext = "\n".join(["Test Line" for i in xrange(1, 100)])
+        plaintext = "\n".join(["Test Line" for i in range(1, 100)])
         plainfile = tempfile.TemporaryFile()
         plainfile.write(plaintext.encode())
         plainfile.seek(0)
