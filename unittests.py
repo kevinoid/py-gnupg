@@ -68,7 +68,7 @@ class GnuPGTests(BasicTest):
         proc = self.gnupg.run( args, create_fhs=creations )
 
         if passphrase != None:
-            proc.handles['passphrase'].write(passphrase)
+            proc.handles['passphrase'].write(passphrase.encode())
             proc.handles['passphrase'].close()
         
         proc.handles['stdin'].write(input)
@@ -101,7 +101,7 @@ class GnuPGTests(BasicTest):
                                attach_fhs=attachments )
         
         if passphrase != None:
-            proc.handles['passphrase'].write(passphrase)
+            proc.handles['passphrase'].write(passphrase.encode())
             proc.handles['passphrase'].close()
             
         # Checking to make sure GnuPG exited successfully
@@ -113,12 +113,12 @@ class GnuPGTests(BasicTest):
         plaintext = "Three blind mice"
 
         ciphertext = self.do_create_fh_operation( ['--symmetric'],
-                                                  plaintext )
+                                                  plaintext.encode() )
         
         decryption = self.do_create_fh_operation( ['--decrypt'],
                                                   ciphertext,
                                                   self.gnupg.passphrase )
-        assert decryption == plaintext, \
+        assert decryption.decode() == plaintext, \
                "GnuPG decrypted output does not match original input"
 
 
@@ -126,7 +126,7 @@ class GnuPGTests(BasicTest):
         """Do GnuPG operations using the attach_fhs feature"""
         plaintext = "\n".join(["Test Line" for i in xrange(1, 100)])
         plainfile = tempfile.TemporaryFile()
-        plainfile.write(plaintext)
+        plainfile.write(plaintext.encode())
         plainfile.seek(0)
 
         temp1 = tempfile.TemporaryFile()
@@ -162,7 +162,7 @@ class GnuPGTests(BasicTest):
                                attach_fhs={
                                    'stdin': os.fdopen(pipeout, 'r'),
                                    'stdout': temp1 } )
-        os.write(pipein, plaintext)
+        os.write(pipein, plaintext.encode())
         os.close(pipein)
         proc.wait()
 
@@ -173,11 +173,11 @@ class GnuPGTests(BasicTest):
                                attach_fhs={
                                     'stdin': temp1,
                                     'stdout': os.fdopen(pipein, 'w') } )
-        plaintext2 = os.read(pipeout, 1024)
+        decrypted = os.read(pipeout, 1024)
         proc.wait()
         os.close(pipeout)
 
-        assert plaintext == plaintext2, \
+        assert plaintext == decrypted.decode(), \
                "GnuPG decrypted output does not match original input"
 
 
