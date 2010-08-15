@@ -489,7 +489,9 @@ class GnuPG(object):
                 #        where the position has not been set by read/write
                 #os.lseek(fd, os.SEEK_CUR, 0)
                 os.tcgetpgrp(fd)
-            except OSError as oe:
+            except OSError:
+                # FIXME:  When support for Python 2.5 is dropped, use 'as'
+                oe = sys.exc_info()[1]
                 if oe.errno == errno.EBADF:
                     continue
 
