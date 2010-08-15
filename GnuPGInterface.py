@@ -230,6 +230,13 @@ if sys.platform == "win32":
     import msvcrt
     import _subprocess
 
+# Define next function for Python pre-2.6
+try:
+    next
+except NameError:
+    def next(itr):
+        return itr.next()
+
 try:
     import fcntl
 except ImportError:
@@ -463,15 +470,15 @@ class GnuPG(object):
         child_fds.append(MAXFD) # Sentinel value, simplifies code greatly
 
         child_fds_iter = iter(child_fds)
-        child_fd = child_fds_iter.next()
+        child_fd = next(child_fds_iter)
         while child_fd < 3:
-            child_fd = child_fds_iter.next()
+            child_fd = next(child_fds_iter)
 
         extra_fds = []
         # FIXME:  Is there a better (portable) way to list all open FDs?
         for fd in range(3, MAXFD):
             if fd > child_fd:
-                child_fd = child_fds_iter.next()
+                child_fd = next(child_fds_iter)
 
             if fd == child_fd:
                 continue
