@@ -153,7 +153,7 @@ class GnuPGTests(BasicTest):
         This is a bit of a torture test where we simulate a client that
         passes a pipe end to gpg without setting the other end to close on
         exec."""
-        plaintext = 'This is only a test.'
+        plaintext = "\n".join(["Test Line" for i in range(1, 1000)])
 
         pipeout, pipein = os.pipe()
         temp1 = tempfile.TemporaryFile()
@@ -173,9 +173,10 @@ class GnuPGTests(BasicTest):
                                attach_fhs={
                                     'stdin': temp1,
                                     'stdout': os.fdopen(pipein, 'w') } )
-        decrypted = os.read(pipeout, 1024)
+        pipeout2 = os.fdopen(popeout, 'r')
+        decrypted = pipeout2.read()
+        pipeout2.close()
         proc.wait()
-        os.close(pipeout)
 
         assert plaintext == decrypted.decode(), \
                "GnuPG decrypted output does not match original input"
