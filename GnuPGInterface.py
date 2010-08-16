@@ -255,6 +255,7 @@ _fd_modes = { 'stdin':      'wb',
               'stdout':     'rb',
               'stderr':     'rb',
               'passphrase': 'wb',
+              'attribute':  'rb',
               'command':    'wb',
               'logger':     'rb',
               'status':     'rb'
@@ -264,7 +265,8 @@ _fd_modes = { 'stdin':      'wb',
 _fd_options = { 'passphrase': '--passphrase-fd',
                 'logger':     '--logger-fd',
                 'status':     '--status-fd',
-                'command':    '--command-fd' }
+                'command':    '--command-fd',
+                'attribute':  '--attribute-fd' }
 
 class GnuPG(object):
     """Class instances represent GnuPG.
