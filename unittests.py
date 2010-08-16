@@ -173,7 +173,7 @@ class GnuPGTests(BasicTest):
                                attach_fhs={
                                     'stdin': temp1,
                                     'stdout': os.fdopen(pipein, 'w') } )
-        pipeout2 = os.fdopen(popeout, 'r')
+        pipeout2 = os.fdopen(pipeout, 'r')
         decrypted = pipeout2.read()
         pipeout2.close()
         proc.wait()
