@@ -524,7 +524,7 @@ class GnuPG(object):
                 pcihandle = _subprocess.DuplicateHandle(
                         curproc, pchandle, curproc, 0, 1,
                         _subprocess.DUPLICATE_SAME_ACCESS)
-                fdarg = int(pcihandle)
+                fdarg = pcihandle.Detach()
             else:
                 # Must pass file descriptor
                 fdarg = p.child
