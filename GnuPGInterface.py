@@ -500,10 +500,23 @@ class GnuPG(object):
             extra_fds.append(fd)
 
         def preexec_fn():
+            # Note:  This function runs after standard FDs have been renumbered
+            #        from their original values to 0, 1, 2
+
             for fd in extra_fds:
                 try:
                     os.close(fd)
                 except OSError:
+                    pass
+
+            # Ensure that all descriptors passed to the child will remain open
+            # Arguably FD_CLOEXEC descriptors should be an argument error
+            # But for backwards compatibility, we just fix it here (after fork)
+            for fd in [0, 1, 2] + child_fds[:-1]:
+                try:
+                    fcntl.fcntl(fd, fcntl.F_SETFD, 0)
+                except OSError:
+                    # Will happen for renumbered FDs
                     pass
 
         return preexec_fn
